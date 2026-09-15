@@ -60,6 +60,7 @@ class FullSchema:
             "prompt_sha256": schema.sha256(SYSTEM_PROMPT + USER_TEMPLATE),
             "schema_sha256": schema.sha256(json.dumps(self.schemas, sort_keys=True)),
         }
+        self.artifacts = {"schemas": self.schemas}
 
     def messages(self, question: Question) -> list[dict]:
         user = USER_TEMPLATE.format(schema=self.schemas[question.db_id], question=question.question)

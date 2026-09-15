@@ -18,6 +18,7 @@ class Table:
     constraints: list[str] = field(default_factory=list)
     sample_header: list[str] = field(default_factory=list)
     sample_rows: list[tuple] = field(default_factory=list)
+    primary_key: list[str] = field(default_factory=list)
 
 
 def _query(execute: Callable[..., db.QueryResult], sql: str) -> list[tuple]:
@@ -36,7 +37,7 @@ def quote_identifier(name: str, reserved: set[str]) -> str:
 def sanitize_value(value) -> str:
     text = "NULL" if value is None else str(value)
     text = re.sub(r"\s+", " ", text).strip()
-    text = text.replace("*/", "* /").replace("</schema", "< /schema")
+    text = text.replace("*/", "* /").replace("</", "< /")
     if len(text) > MAX_VALUE_CHARS:
         text = text[: MAX_VALUE_CHARS - 1] + "…"
     return text
@@ -64,14 +65,31 @@ def load_tables(
         name = table.strip('"')
         if name in tables:
             tables[name].constraints.append(definition)
+    for table, column in _query(
+        execute,
+        "SELECT c.conrelid::regclass::text, a.attname FROM pg_constraint c "
+        "CROSS JOIN LATERAL unnest(c.conkey) WITH ORDINALITY AS k(attnum, ord) "
+        "JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = k.attnum "
+        "WHERE c.contype = 'p' AND c.connamespace = 'public'::regnamespace ORDER BY 1, k.ord",
+    ):
+        name = table.strip('"')
+        if name in tables:
+            tables[name].primary_key.append(column)
     if sample_rows:
         for t in tables.values():
-            sql = f"SELECT * FROM {quote_identifier(t.name, reserved)} LIMIT {int(sample_rows)}"  # noqa: S608
+            sql = f"SELECT * FROM {quote_identifier(t.name, reserved)} ORDER BY {_sample_order(t, reserved)} "  # noqa: S608
+            sql += f"LIMIT {int(sample_rows)}"
             result = execute(sql, caller="schema", question_id=None)
             if not result.ok:
                 raise RuntimeError(f"sampling {t.name} failed: {result.error}")
             t.sample_header, t.sample_rows = result.columns, result.rows
     return [tables[n] for n in names], reserved
+
+
+def _sample_order(table: Table, reserved: set[str]) -> str:
+    if table.primary_key:
+        return ", ".join(quote_identifier(c, reserved) for c in table.primary_key)
+    return ", ".join(str(i) for i in range(1, len(table.columns) + 1))
 
 
 def render_table(table: Table, reserved: set[str]) -> str:
