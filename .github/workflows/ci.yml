@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.1.0
+      - run: uv lock --check
+      - run: uv run --frozen ruff check
+      - run: uv run --frozen ruff format --check
+
+  security-tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-admin
+          POSTGRES_DB: bird
+        ports:
+          - 5434:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d bird"
+          --health-interval 2s
+          --health-retries 30
+    env:
+      POSTGRES_ADMIN_PASSWORD: ci-admin
+      SQLAGENT_RO_PASSWORD: ci-readonly
+      # Fail instead of skipping when the database is unreachable.
+      REQUIRE_DB: "1"
+      PGHOST: 127.0.0.1
+      PGPORT: "5434"
+      PGUSER: postgres
+      PGDATABASE: bird
+      PGPASSWORD: ci-admin
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.1.0
+      - name: Load fixture schema
+        run: psql -v ON_ERROR_STOP=1 -f tests/fixtures/ci_schema.sql
+      - name: Apply read-only role (twice, to prove idempotency)
+        run: |
+          psql -v ro_password="$SQLAGENT_RO_PASSWORD" -f sql/00_roles.sql
+          psql -v ro_password="$SQLAGENT_RO_PASSWORD" -f sql/00_roles.sql
+      - run: uv run --frozen pytest -v
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read  # the action lists the PR's commits to scan
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: "false"  # would need write access; the job status is enough
