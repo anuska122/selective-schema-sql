@@ -43,7 +43,7 @@ Design rules:
 
 | Milestone | Scope | State |
 |---|---|---|
-| M1 | Eval harness + full-schema baseline | **In progress**: data loaded, read-only role, security tests, CI |
+| M1 | Eval harness + full-schema baseline | **In progress**: data, read-only role, query path, frozen sample, gold cache, runner and reports done; LLM baseline next |
 | M2 | Offline indexer | Not started |
 | M3 | Retriever, measuring schema-linking recall (go/no-go) | Not started |
 | M4 | Selector | Not started |
@@ -109,11 +109,13 @@ uv run python scripts/cache_gold.py
 uv run python scripts/run_eval.py gold_oracle
 ```
 
-Each run writes `runs/<timestamp>_<strategy>/config.json` (git SHA, sample hash,
-question ids, price table) and `results.jsonl` (one row per question: SQL,
-correctness, errors, tokens, latency, cost), and `summary.json` (EX overall and by
-difficulty, errors by type, tokens, p50/p95 latency, cost). Only `summary.json`
-is committed. `gold_oracle` returns the gold SQL; it must score 100% EX, which
+Each run writes three files to `runs/<timestamp>_<strategy>/`:
+
+- `config.json`: git SHA, sample hash, question ids, price table
+- `results.jsonl`: one row per question with SQL, correctness, errors, tokens, latency, cost
+- `summary.json`: EX overall and by difficulty, errors by type, tokens, p50/p95 latency, cost
+
+Only `summary.json` is committed. `gold_oracle` returns the gold SQL; it must score 100% EX, which
 checks the harness itself.
 
 Compare two runs question by question. With 50 questions each one is worth 2
@@ -155,10 +157,10 @@ the role; `tests/test_db.py` covers the query path.
 ```
 docker-compose.yml         Postgres 16 for local development
 sql/00_roles.sql           read-only role and privileges
-scripts/                   setup: apply roles, verify data load
-src/sqlagent/              the package: config, db (single query path)
+scripts/                   setup, sample, gold cache, run_eval, compare
+src/sqlagent/              config, db (single query path), eval/ (dataset, gold, runner, metrics, reports), strategies/
 tests/                     security and unit tests; fixtures/ for CI
-eval/                      committed eval artifacts (table → database map)
+eval/                      committed eval artifacts: table → database map, frozen sample
 data/  runs/               gitignored: dataset, run outputs
 ```
 
