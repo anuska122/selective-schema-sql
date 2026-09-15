@@ -1,5 +1,3 @@
-"""Config must never hand agent code anything but the read-only role."""
-
 import pytest
 
 from sqlagent import config
@@ -32,7 +30,7 @@ def test_load_env_missing_file_is_noop(tmp_path, clean_env):
 
 
 def test_ro_dsn_uses_read_only_role_and_never_admin_password(clean_env, tmp_path):
-    clean_env.setattr(config, "ROOT", tmp_path)  # ignore any real .env
+    clean_env.setattr(config, "ROOT", tmp_path)
     clean_env.setenv("SQLAGENT_RO_PASSWORD", "ro-secret")
     clean_env.setenv("POSTGRES_ADMIN_PASSWORD", "admin-secret")
     dsn = config.ro_dsn()
