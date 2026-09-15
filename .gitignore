@@ -8,3 +8,8 @@ runs/**
 !runs/**/
 !runs/**/summary.json
 audit/
+.coverage
+coverage.xml
+htmlcov/
+.pytest_cache/
+.ruff_cache/
