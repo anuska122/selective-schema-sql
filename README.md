@@ -112,13 +112,19 @@ in the prompt.
 - **Resource limits:** 10s statement timeout, 30s idle-in-transaction timeout,
   100 MB temp files.
 - **Known gaps Postgres cannot close:** a bare `SET statement_timeout`, and a role
-  changing its own defaults. Tests pin both. The single query path
-  (`db.execute`, planned) must accept exactly one SELECT and set limits on every call.
-- **Planned (M1–M5):** every query parsed and validated before execution, and a
-  full audit log of question, SQL, and result size. Retrieved schema descriptions
-  and sampled values are handled as untrusted, since they are a prompt-injection surface.
+  changing its own defaults. Tests pin both; `db.execute` closes them.
+- **Single query path, `sqlagent.db.execute`:**
+  - SQLGlot accepts exactly one read-only query. It rejects DML hidden in CTEs,
+    `SELECT INTO`, `FOR UPDATE`, `SET`, `COPY`, and multiple statements.
+  - Each call runs in a `READ ONLY` transaction with its own `statement_timeout`.
+  - Results come through a server-side cursor (which also rejects multi-statement
+    input at the protocol level), capped at 10,000 rows with a `truncated` flag.
+  - Every call, including rejected ones, is appended to `audit/queries.jsonl`.
+- **Planned:** retrieved schema descriptions and sampled values are handled as
+  untrusted, since they are a prompt-injection surface.
 
-`tests/test_security.py` proves each control by connecting directly as the role.
+`tests/test_security.py` proves each database control by connecting directly as
+the role; `tests/test_db.py` covers the query path.
 
 ## Repository layout
 
@@ -126,7 +132,7 @@ in the prompt.
 docker-compose.yml         Postgres 16 for local development
 sql/00_roles.sql           read-only role and privileges
 scripts/                   setup: apply roles, verify data load
-src/sqlagent/              the package (config so far)
+src/sqlagent/              the package: config, db (single query path)
 tests/                     security and unit tests; fixtures/ for CI
 eval/                      committed eval artifacts (table → database map)
 data/  runs/               gitignored: dataset, run outputs
