@@ -99,6 +99,21 @@ uv run ruff check && uv run ruff format --check
 
 Database tests skip when Postgres isn't reachable locally. In CI they fail instead.
 
+### 5. Evaluation
+
+The 50-question sample (`eval/sample_50.json`) is committed and frozen. Build the
+gold result cache once, then run a strategy:
+
+```sh
+uv run python scripts/cache_gold.py
+uv run python scripts/run_eval.py gold_oracle
+```
+
+Each run writes `runs/<timestamp>_<strategy>/config.json` (git SHA, sample hash,
+question ids, price table) and `results.jsonl` (one row per question: SQL,
+correctness, errors, tokens, latency, cost). `gold_oracle` returns the gold SQL;
+it must score 100% EX, which checks the harness itself.
+
 ## Security model
 
 All generated SQL is treated as untrusted. The controls sit in the database, not
