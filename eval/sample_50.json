@@ -1,0 +1,263 @@
+{
+  "created": "2026-09-15",
+  "source": "mini_dev_postgresql.json",
+  "seed": 20260915,
+  "quotas": {
+    "simple": 15,
+    "moderate": 25,
+    "challenging": 10
+  },
+  "questions": [
+    {
+      "question_id": 17,
+      "db_id": "california_schools",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 24,
+      "db_id": "california_schools",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 89,
+      "db_id": "financial",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 92,
+      "db_id": "financial",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 118,
+      "db_id": "financial",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 219,
+      "db_id": "toxicology",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 227,
+      "db_id": "toxicology",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 268,
+      "db_id": "toxicology",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 358,
+      "db_id": "card_games",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 409,
+      "db_id": "card_games",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 422,
+      "db_id": "card_games",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 427,
+      "db_id": "card_games",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 465,
+      "db_id": "card_games",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 479,
+      "db_id": "card_games",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 539,
+      "db_id": "codebase_community",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 665,
+      "db_id": "codebase_community",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 736,
+      "db_id": "superhero",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 744,
+      "db_id": "superhero",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 751,
+      "db_id": "superhero",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 773,
+      "db_id": "superhero",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 781,
+      "db_id": "superhero",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 788,
+      "db_id": "superhero",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 790,
+      "db_id": "superhero",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 822,
+      "db_id": "superhero",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 829,
+      "db_id": "superhero",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 866,
+      "db_id": "formula_1",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 869,
+      "db_id": "formula_1",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 951,
+      "db_id": "formula_1",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 964,
+      "db_id": "formula_1",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 971,
+      "db_id": "formula_1",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 1040,
+      "db_id": "european_football_2",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 1042,
+      "db_id": "european_football_2",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 1088,
+      "db_id": "european_football_2",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 1091,
+      "db_id": "european_football_2",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 1102,
+      "db_id": "european_football_2",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 1113,
+      "db_id": "european_football_2",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 1124,
+      "db_id": "european_football_2",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 1136,
+      "db_id": "european_football_2",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 1166,
+      "db_id": "thrombosis_prediction",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 1187,
+      "db_id": "thrombosis_prediction",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 1209,
+      "db_id": "thrombosis_prediction",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 1241,
+      "db_id": "thrombosis_prediction",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 1242,
+      "db_id": "thrombosis_prediction",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 1346,
+      "db_id": "student_club",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 1361,
+      "db_id": "student_club",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 1371,
+      "db_id": "student_club",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 1435,
+      "db_id": "student_club",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 1464,
+      "db_id": "student_club",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 1483,
+      "db_id": "debit_card_specializing",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 1531,
+      "db_id": "debit_card_specializing",
+      "difficulty": "moderate"
+    }
+  ],
+  "replaced": []
+}
