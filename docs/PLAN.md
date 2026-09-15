@@ -1,6 +1,13 @@
 # Plan
 
-**Status:** M1 not started. **Next session:** M1-S1.
+**Status:** M1-S1 done (2026-09-15). **Next session:** M1-S2 — decide D6 first.
+
+M1-S1 notes: Postgres 16 in Docker on `127.0.0.1:5434` (5432/5433 taken
+locally); admin password in gitignored `.env`. Dump loaded in one transaction
+with its `OWNER TO xiaolongli` lines stripped. 75/75 tables, row counts match
+SQLite, 68 PKs + 87 FKs. No name collisions; near-collisions across DBs:
+`card`/`cards`, `race`/`races` (good pooled-mode test cases). Re-verify with
+`uv run python scripts/map_tables.py`.
 
 ---
 
