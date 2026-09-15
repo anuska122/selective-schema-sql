@@ -1,5 +1,4 @@
 import argparse
-import json
 import sys
 
 from sqlagent.eval.dataset import SAMPLE, load_sample
@@ -17,12 +16,8 @@ def main() -> int:
 
     questions = load_sample()
     run_dir = run_eval(STRATEGIES[args.strategy](), questions, load_gold(questions), sample_path=SAMPLE)
-    rows = [json.loads(line) for line in (run_dir / "results.jsonl").read_text().splitlines()]
-    correct = sum(r["correct"] for r in rows)
-    print(f"{run_dir.name}: EX {correct}/{len(rows)} = {100 * correct / len(rows):.1f}%")
-    for r in rows:
-        if not r["correct"]:
-            print(f"  wrong qid={r['qid']} {r['exec_error'] or 'result mismatch'}")
+    print(run_dir.name)
+    print((run_dir / "summary.json").read_text())
     return 0
 
 

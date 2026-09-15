@@ -11,6 +11,7 @@ from sqlagent import config, db
 from sqlagent.eval.dataset import Question
 from sqlagent.eval.gold import GoldResult
 from sqlagent.eval.metrics import execution_match, stage_cost_usd
+from sqlagent.eval.report import summarize
 from sqlagent.eval.types import Prediction, Strategy
 
 RUNS_DIR = config.ROOT / "runs"
@@ -119,4 +120,5 @@ def run_eval(
             row = evaluate_question(strategy, q, gold[q.question_id], prices, execute)
             out.write(json.dumps(row, default=str) + "\n")
             out.flush()
+    summarize(run_dir)
     return run_dir

@@ -131,3 +131,10 @@ def test_git_state_when_git_unavailable(monkeypatch):
 
     monkeypatch.setattr(runner.subprocess, "run", boom)
     assert runner.git_state() == {"sha": None, "dirty": None}
+
+
+def test_run_writes_summary(tmp_path):
+    execute = fake_execute({"SELECT 1": QueryResult(rows=[(1,)]), "SELECT 2": QueryResult(rows=[(9,)])})
+    run_dir = runner.run_eval(GoldOracle(), QUESTIONS, GOLD, runs_dir=tmp_path, execute=execute)
+    summary = json.loads((run_dir / "summary.json").read_text())
+    assert summary["overall"] == {"n": 2, "correct": 1, "ex": 50.0}
