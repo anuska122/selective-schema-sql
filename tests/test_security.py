@@ -145,7 +145,6 @@ def test_role_settings_not_tampered(conn):
     assert [(db, set(cfg)) for db, cfg in rows] == [(0, EXPECTED_ROLE_SETTINGS)]
 
 
-# --- known gaps the database cannot close ---------------------------------
 # Known gaps Postgres cannot close; db.execute must block these (#6).
 
 
