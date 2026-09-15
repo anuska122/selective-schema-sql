@@ -111,8 +111,17 @@ uv run python scripts/run_eval.py gold_oracle
 
 Each run writes `runs/<timestamp>_<strategy>/config.json` (git SHA, sample hash,
 question ids, price table) and `results.jsonl` (one row per question: SQL,
-correctness, errors, tokens, latency, cost). `gold_oracle` returns the gold SQL;
-it must score 100% EX, which checks the harness itself.
+correctness, errors, tokens, latency, cost), and `summary.json` (EX overall and by
+difficulty, errors by type, tokens, p50/p95 latency, cost). Only `summary.json`
+is committed. `gold_oracle` returns the gold SQL; it must score 100% EX, which
+checks the harness itself.
+
+Compare two runs question by question. With 50 questions each one is worth 2
+points, so read the fixed and broken lists, not just the EX delta:
+
+```sh
+uv run python scripts/compare.py runs/<run_a> runs/<run_b>
+```
 
 ## Security model
 
