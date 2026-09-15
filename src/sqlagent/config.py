@@ -9,7 +9,8 @@ PG_DATABASE = "bird"
 RO_ROLE = "sqlagent_ro"
 
 
-def load_env(path: Path = ROOT / ".env") -> None:
+def load_env(path: Path | None = None) -> None:
+    path = path or ROOT / ".env"
     if not path.exists():
         return
     for line in path.read_text().splitlines():

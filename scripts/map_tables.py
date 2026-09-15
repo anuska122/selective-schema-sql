@@ -1,13 +1,3 @@
-"""M1-S1: map every Postgres table to its BIRD db_id and verify the load.
-
-Source of truth for membership is dev_tables.json; the SQLite files give the
-reference row counts. Writes eval/table_db_map.json. Exits non-zero on any
-mismatch.
-
-Runs as the admin role: this is a one-off setup check, not agent code, so it
-deliberately does not go through db.execute().
-"""
-
 import json
 import os
 import sqlite3
@@ -41,7 +31,6 @@ def main() -> int:
     load_env()
     errors: list[str] = []
 
-    # Expected membership, lowercased to match Postgres identifiers.
     table_to_db: dict[str, str] = {}
     original_name: dict[str, str] = {}
     for db in json.loads((MINIDEV / "dev_tables.json").read_text()):
@@ -77,8 +66,6 @@ def main() -> int:
                 errors.append(f"row count {db_id}.{table}: postgres={pg_count} sqlite={sq_count}")
             mapping[db_id][table] = pg_count
 
-    # Case-insensitive near-collisions (card/cards, race/races) are what make
-    # the pooled setup hard; list them so they're visible, not errors.
     near = sorted(
         (a, b)
         for a in table_to_db
