@@ -21,8 +21,7 @@ def load_env(path: Path = ROOT / ".env") -> None:
 def _dsn(user: str, password_var: str) -> str:
     load_env()
     return (
-        f"host={PG_HOST} port={PG_PORT} dbname={PG_DATABASE} "
-        f"user={user} password={os.environ[password_var]}"
+        f"host={PG_HOST} port={PG_PORT} dbname={PG_DATABASE} user={user} password={os.environ[password_var]}"
     )
 
 

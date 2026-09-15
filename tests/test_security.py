@@ -13,6 +13,8 @@ def conn():
     try:
         c = psycopg.connect(ro_dsn(), connect_timeout=3)
     except psycopg.OperationalError as e:
+        if os.environ.get("REQUIRE_DB"):
+            raise
         pytest.skip(f"database not reachable: {e}")
     yield c
     c.close()
@@ -143,7 +145,9 @@ def test_role_settings_not_tampered(conn):
     assert [(db, set(cfg)) for db, cfg in rows] == [(0, EXPECTED_ROLE_SETTINGS)]
 
 
+# --- known gaps the database cannot close ---------------------------------
 # Known gaps Postgres cannot close; db.execute must block these (#6).
+
 
 def test_known_gap_bare_set_lifts_timeout(conn):
     conn.execute("SET statement_timeout = 0")

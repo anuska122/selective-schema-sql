@@ -53,8 +53,7 @@ def main() -> int:
             original_name[key] = name
 
     dsn = (
-        f"host=127.0.0.1 port=5434 dbname=bird user=postgres "
-        f"password={os.environ['POSTGRES_ADMIN_PASSWORD']}"
+        f"host=127.0.0.1 port=5434 dbname=bird user=postgres password={os.environ['POSTGRES_ADMIN_PASSWORD']}"
     )
     with psycopg.connect(dsn) as con:
         pg_tables = {
