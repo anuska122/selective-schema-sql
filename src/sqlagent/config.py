@@ -1,5 +1,3 @@
-"""Connection settings, read from the environment (and .env if present)."""
-
 import os
 from pathlib import Path
 
@@ -28,10 +26,8 @@ def _dsn(user: str, password_var: str) -> str:
 
 
 def ro_dsn() -> str:
-    """The only DSN agent and eval code may use."""
     return _dsn(RO_ROLE, "SQLAGENT_RO_PASSWORD")
 
 
 def admin_dsn() -> str:
-    """Setup scripts only."""
     return _dsn("postgres", "POSTGRES_ADMIN_PASSWORD")

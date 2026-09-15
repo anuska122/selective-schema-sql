@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Apply sql/00_roles.sql as the admin role. Safe to run repeatedly.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 set -a; source .env; set +a
