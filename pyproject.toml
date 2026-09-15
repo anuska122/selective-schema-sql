@@ -5,6 +5,7 @@ description = "Selective-schema text-to-SQL agent"
 requires-python = ">=3.12"
 dependencies = [
     "psycopg[binary]>=3.2",
+    "sqlglot>=30.18.0",
 ]
 
 [dependency-groups]
