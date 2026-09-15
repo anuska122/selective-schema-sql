@@ -1,9 +1,3 @@
-"""The read-only role must be enforced by Postgres, not by our code.
-
-Every test connects straight to the database as sqlagent_ro, bypassing all
-application code. Requires the container up and scripts/apply_roles.sh applied.
-"""
-
 import os
 import time
 
@@ -25,14 +19,10 @@ def conn():
 
 
 def run_rw(conn, sql: str):
-    """Run sql after explicitly flipping the transaction to READ WRITE, so a
-    failure proves privileges block it rather than read-only mode."""
     with conn.transaction():
         conn.execute("SET TRANSACTION READ WRITE")
         conn.execute(sql)
 
-
-# --- sanity ---------------------------------------------------------------
 
 def test_can_read(conn):
     assert conn.execute("SELECT COUNT(*) FROM superhero").fetchone()[0] > 0
@@ -45,8 +35,6 @@ def test_role_attributes(conn):
     ).fetchone()
     assert row == (False, False, False, False, False, False)
 
-
-# --- writes, in default read-only mode and after SET TRANSACTION READ WRITE --
 
 WRITES = [
     "INSERT INTO colour (id, colour) VALUES (99999, 'x')",
@@ -108,8 +96,6 @@ def test_cannot_connect_to_other_databases():
             )
 
 
-# --- resource limits ------------------------------------------------------
-
 def test_statement_timeout_kills_long_query(conn):
     start = time.monotonic()
     with pytest.raises(errors.QueryCanceled):
@@ -150,8 +136,6 @@ EXPECTED_ROLE_SETTINGS = {
 
 
 def test_role_settings_not_tampered(conn):
-    """Drift detector for the gap below: fails if anyone persisted new defaults.
-    Fix by re-running scripts/apply_roles.sh."""
     rows = conn.execute(
         "SELECT s.setdatabase, s.setconfig FROM pg_db_role_setting s "
         "JOIN pg_roles r ON r.oid = s.setrole WHERE r.rolname = current_user"
@@ -159,10 +143,7 @@ def test_role_settings_not_tampered(conn):
     assert [(db, set(cfg)) for db, cfg in rows] == [(0, EXPECTED_ROLE_SETTINGS)]
 
 
-# --- known gaps the database cannot close ---------------------------------
-# These pass while the gap exists, so it is never forgotten. The control
-# belongs to db.execute (issue #6): accept exactly one SELECT statement and set
-# timeout and read-only mode itself on every call.
+# Known gaps Postgres cannot close; db.execute must block these (#6).
 
 def test_known_gap_bare_set_lifts_timeout(conn):
     conn.execute("SET statement_timeout = 0")
@@ -178,8 +159,6 @@ def test_known_gap_bare_set_lifts_timeout(conn):
     ],
 )
 def test_known_gap_role_can_persist_own_defaults(conn, sql):
-    """Ordinary roles may ALTER ROLE themselves for user-settable GUCs.
-    Always rolled back here; writes stay blocked by privileges regardless."""
     with conn.transaction():
         conn.execute("SET TRANSACTION READ WRITE")
         conn.execute(sql)
