@@ -1,8 +1,10 @@
 # Plan
 
-**Status:** M1-S1, M1-S2 done (2026-09-15). **Next session:** M1-S3 — decide D1 first.
+**Status:** M1-S1, M1-S2 done, CI in place (2026-09-15). **Next session:** M1-S3 (D1 decided: both).
 Work is tracked as GitHub issues (one per task, milestone per M#) on
-`anuska122/selective-schema-sql`; branch `m<N>/<issue>-<name>`, PR closes the issue.
+`anuska122/selective-schema-sql`. Branch `feature/<issue>-<scope>` or
+`bugfix/<issue>-<scope>` from `main`, Conventional Commits, PR to `main` closes
+the issue. Contributing rules and definition of done: README.
 
 M1-S2 notes: `scripts/apply_roles.sh` then `uv run pytest`. The role also
 closes default-Postgres bypasses PLAN §4 missed (large-object writes,
