@@ -50,9 +50,8 @@ Design rules:
 | M5 | Validator + escalation ladder | Not started |
 | M6 | Observability, then FastAPI | Not started |
 
-Detailed plan: [`docs/PLAN.md`](docs/PLAN.md). Architectural decisions and their
-status: [`docs/DECISIONS.md`](docs/DECISIONS.md). Work is tracked in GitHub issues,
-one per task, grouped by milestone.
+Work is tracked in GitHub issues, one per task, grouped by milestone.
+Architectural decisions are issues labelled `decision`.
 
 ## Local setup
 
@@ -72,33 +71,29 @@ EOF
 ### 2. Postgres and the BIRD data
 
 ```sh
-# Download BIRD Mini-Dev (~800 MB) into data/ (gitignored)
 mkdir -p data && curl -o data/minidev.zip https://bird-bench.oss-cn-beijing.aliyuncs.com/minidev.zip
 unzip -q data/minidev.zip -d data
 
-# Postgres 16 on 127.0.0.1:5434
 docker compose up -d --wait
 
-# Load the dump in one transaction. Strip the dump's OWNER TO lines so an
-# unknown role never owns the tables.
 docker compose exec -T postgres bash -c \
   "sed '/ OWNER TO xiaolongli;\$/d' /data/minidev/MINIDEV_postgresql/BIRD_dev.sql \
    | psql -q -U postgres -d bird -v ON_ERROR_STOP=1 --single-transaction"
 
 uv sync
-uv run python scripts/map_tables.py   # verifies 75 tables + row counts, writes eval/table_db_map.json
+uv run python scripts/map_tables.py
 ```
 
 ### 3. Read-only role
 
 ```sh
-scripts/apply_roles.sh   # idempotent; re-run any time
+scripts/apply_roles.sh
 ```
 
 ### 4. Tests
 
 ```sh
-uv run pytest            # security + unit tests, with coverage (≥90% enforced)
+uv run pytest
 uv run ruff check && uv run ruff format --check
 ```
 
@@ -134,7 +129,6 @@ scripts/                   setup: apply roles, verify data load
 src/sqlagent/              the package (config so far)
 tests/                     security and unit tests; fixtures/ for CI
 eval/                      committed eval artifacts (table → database map)
-docs/                      plan and decision log
 data/  runs/               gitignored: dataset, run outputs
 ```
 
