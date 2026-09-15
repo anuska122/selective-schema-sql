@@ -19,6 +19,8 @@ def conn():
     try:
         c = psycopg.connect(ro_dsn(), connect_timeout=3)
     except psycopg.OperationalError as e:
+        if os.environ.get("REQUIRE_DB"):
+            raise
         pytest.skip(f"database not reachable: {e}")
     yield c
     c.close()
@@ -33,6 +35,7 @@ def run_rw(conn, sql: str):
 
 
 # --- sanity ---------------------------------------------------------------
+
 
 def test_can_read(conn):
     assert conn.execute("SELECT COUNT(*) FROM superhero").fetchone()[0] > 0
@@ -110,6 +113,7 @@ def test_cannot_connect_to_other_databases():
 
 # --- resource limits ------------------------------------------------------
 
+
 def test_statement_timeout_kills_long_query(conn):
     start = time.monotonic()
     with pytest.raises(errors.QueryCanceled):
@@ -163,6 +167,7 @@ def test_role_settings_not_tampered(conn):
 # These pass while the gap exists, so it is never forgotten. The control
 # belongs to db.execute (issue #6): accept exactly one SELECT statement and set
 # timeout and read-only mode itself on every call.
+
 
 def test_known_gap_bare_set_lifts_timeout(conn):
     conn.execute("SET statement_timeout = 0")
