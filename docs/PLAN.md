@@ -1,6 +1,15 @@
 # Plan
 
-**Status:** M1-S1 done (2026-09-15). **Next session:** M1-S2 — decide D6 first.
+**Status:** M1-S1, M1-S2 done (2026-09-15). **Next session:** M1-S3 — decide D1 first.
+Work is tracked as GitHub issues (one per task, milestone per M#) on
+`anuska122/selective-schema-sql`; branch `m<N>/<issue>-<name>`, PR closes the issue.
+
+M1-S2 notes: `scripts/apply_roles.sh` then `uv run pytest`. The role also
+closes default-Postgres bypasses PLAN §4 missed (large-object writes,
+`set_config`, DO blocks, TEMP/CONNECT via PUBLIC). Two gaps Postgres cannot
+close — a bare `SET statement_timeout`, and the role persisting its own
+defaults via `ALTER ROLE` — are pinned by tests and must be handled in
+`db.execute` (#6). Writes stay blocked by privileges regardless.
 
 M1-S1 notes: Postgres 16 in Docker on `127.0.0.1:5434` (5432/5433 taken
 locally); admin password in gitignored `.env`. Dump loaded in one transaction
