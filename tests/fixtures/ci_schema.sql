@@ -1,6 +1,3 @@
--- Minimal stand-in for the BIRD dump, just enough for tests/test_security.py.
--- CI cannot download the 1 GB dump; the role script under test is the real one.
-
 CREATE TABLE public.colour (
     id bigint PRIMARY KEY,
     colour text

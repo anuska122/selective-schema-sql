@@ -40,7 +40,6 @@ jobs:
     env:
       POSTGRES_ADMIN_PASSWORD: ci-admin
       SQLAGENT_RO_PASSWORD: ci-readonly
-      # Fail instead of skipping when the database is unreachable.
       REQUIRE_DB: "1"
       PGHOST: 127.0.0.1
       PGPORT: "5434"
@@ -62,7 +61,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: read  # the action lists the PR's commits to scan
+      pull-requests: read
     steps:
       - uses: actions/checkout@v7
         with:
@@ -70,4 +69,4 @@ jobs:
       - uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_ENABLE_COMMENTS: "false"  # would need write access; the job status is enough
+          GITLEAKS_ENABLE_COMMENTS: "false"
