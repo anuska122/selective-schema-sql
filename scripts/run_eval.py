@@ -7,10 +7,13 @@ from sqlagent.eval.gold import load_gold
 from sqlagent.eval.runner import run_eval
 from sqlagent.strategies.full_schema import FullSchema
 from sqlagent.strategies.oracle import GoldOracle
+from sqlagent.strategies.selective import build_selective
 
 STRATEGIES = {
     "gold_oracle": GoldOracle,
     "full_schema": lambda: FullSchema(llm.GroqClient()),
+    "selective": build_selective,
+    "selective_pooled": lambda: build_selective(layout="pooled"),
 }
 
 

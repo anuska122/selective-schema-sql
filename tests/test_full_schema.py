@@ -6,8 +6,9 @@ from sqlagent import schema
 from sqlagent.db import QueryResult
 from sqlagent.eval.dataset import Question
 from sqlagent.eval.types import StageTrace
+from sqlagent.generation import SYSTEM_PROMPT, extract_sql
 from sqlagent.llm import LLMResponse
-from sqlagent.strategies.full_schema import SYSTEM_PROMPT, FullSchema, extract_sql
+from sqlagent.strategies.full_schema import FullSchema
 
 RESERVED = {"order", "user"}
 
