@@ -14,6 +14,7 @@ STRATEGIES = {
     "full_schema": lambda: FullSchema(llm.GroqClient()),
     "selective": build_selective,
     "selective_pooled": lambda: build_selective(layout="pooled"),
+    "selective_validated": lambda: build_selective(validate=True),
 }
 
 

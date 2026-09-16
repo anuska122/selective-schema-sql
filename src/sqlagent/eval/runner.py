@@ -70,6 +70,7 @@ def evaluate_question(
         "rate_limit_wait_ms": round(wait_ms, 2),
         "cost_usd": sum(stage_cost_usd(s, prices) for s in prediction.stages),
         "stages": [asdict(s) for s in prediction.stages],
+        "details": prediction.details,
     }
     if prediction.sql is None:
         row["exec_error"] = row["exec_error"] or "no_sql"
