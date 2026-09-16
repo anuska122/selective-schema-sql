@@ -113,3 +113,34 @@ def test_store_totals_price_cached_input_separately(tmp_path):
     totals = store.totals()
     assert totals["tables"] == 1
     assert totals["list_price_usd"] == pytest.approx(0.5 * p["input"] + 0.5 * p["cached_input"] + p["output"])
+
+
+@pytest.mark.parametrize(
+    ("returned", "expected_column"),
+    [
+        ('"First Date"', "First Date"),
+        ("first date", "First Date"),
+        ("owndisplayname", "ownerdisplayname"),
+        ("ownerdisplaynam", "ownerdisplayname"),
+    ],
+)
+def test_parse_response_matches_quoted_and_near_miss_column_names(returned, expected_column):
+    text = json.dumps({"table": "t", "columns": {returned: "a description"}})
+    _, columns, _, invented = parse_response(text, ["First Date", "ownerdisplayname"])
+    assert columns == {expected_column: "a description"}
+    assert invented == []
+
+
+def test_parse_response_still_rejects_unrelated_names():
+    text = json.dumps({"table": "t", "columns": {"totally_different": "x"}})
+    _, columns, missing, invented = parse_response(text, ["ownerdisplayname"])
+    assert columns == {}
+    assert invented == ["totally_different"]
+    assert missing == ["ownerdisplayname"]
+
+
+def test_parse_response_does_not_reuse_a_column_for_two_near_misses():
+    text = json.dumps({"table": "t", "columns": {"ownerdisplayname": "real", "ownerdisplaynam": "near"}})
+    _, columns, _, invented = parse_response(text, ["ownerdisplayname"])
+    assert columns == {"ownerdisplayname": "real"}
+    assert invented == ["ownerdisplaynam"]
