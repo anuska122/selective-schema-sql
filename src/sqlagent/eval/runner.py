@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from sqlagent import config, db
+from sqlagent.errors import AbortRun
 from sqlagent.eval.dataset import Question
 from sqlagent.eval.gold import GoldResult
 from sqlagent.eval.metrics import execution_match, stage_cost_usd
@@ -43,6 +44,8 @@ def evaluate_question(
     try:
         prediction = strategy.answer(question)
         strategy_error = None
+    except AbortRun:
+        raise
     except Exception as e:
         prediction = Prediction(sql=None)
         strategy_error = f"strategy_error: {type(e).__name__}: {e}"
@@ -120,10 +123,17 @@ def run_eval(
     artifacts = getattr(strategy, "artifacts", None)
     if artifacts:
         (run_dir / "artifacts.json").write_text(json.dumps(artifacts, indent=1, sort_keys=True) + "\n")
+    aborted = None
+    answered = 0
     with (run_dir / "results.jsonl").open("w") as out:
         for q in questions:
-            row = evaluate_question(strategy, q, gold[q.question_id], prices, execute)
+            try:
+                row = evaluate_question(strategy, q, gold[q.question_id], prices, execute)
+            except AbortRun as e:
+                aborted = str(e)
+                break
             out.write(json.dumps(row, default=str) + "\n")
             out.flush()
-    summarize(run_dir)
+            answered += 1
+    summarize(run_dir, incomplete=aborted, answered=answered, planned=len(questions))
     return run_dir

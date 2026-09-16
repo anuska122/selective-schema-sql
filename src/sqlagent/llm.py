@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import httpx
 
 from sqlagent import config
+from sqlagent.errors import AbortRun
 from sqlagent.eval.types import StageTrace
 
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
@@ -28,7 +29,7 @@ class LLMError(RuntimeError):
     pass
 
 
-class QuotaExhausted(LLMError):
+class QuotaExhausted(LLMError, AbortRun):
     pass
 
 
