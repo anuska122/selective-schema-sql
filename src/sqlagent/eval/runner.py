@@ -117,6 +117,9 @@ def run_eval(
         )
         + "\n"
     )
+    artifacts = getattr(strategy, "artifacts", None)
+    if artifacts:
+        (run_dir / "artifacts.json").write_text(json.dumps(artifacts, indent=1, sort_keys=True) + "\n")
     with (run_dir / "results.jsonl").open("w") as out:
         for q in questions:
             row = evaluate_question(strategy, q, gold[q.question_id], prices, execute)

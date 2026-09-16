@@ -138,3 +138,16 @@ def test_run_writes_summary(tmp_path):
     run_dir = runner.run_eval(GoldOracle(), QUESTIONS, GOLD, runs_dir=tmp_path, execute=execute)
     summary = json.loads((run_dir / "summary.json").read_text())
     assert summary["overall"] == {"n": 2, "correct": 1, "ex": 50.0}
+
+
+def test_strategy_artifacts_are_saved_with_the_run(tmp_path):
+    class WithArtifacts(GoldOracle):
+        artifacts = {"schemas": {"db": "CREATE TABLE x (a int);"}}
+
+    execute = fake_execute({"SELECT 1": QueryResult(rows=[(1,)]), "SELECT 2": QueryResult(rows=[(2,), (3,)])})
+    with_artifacts = runner.run_eval(
+        WithArtifacts(), QUESTIONS, GOLD, runs_dir=tmp_path / "a", execute=execute
+    )
+    without = runner.run_eval(GoldOracle(), QUESTIONS, GOLD, runs_dir=tmp_path / "b", execute=execute)
+    assert json.loads((with_artifacts / "artifacts.json").read_text()) == WithArtifacts.artifacts
+    assert not (without / "artifacts.json").exists()
