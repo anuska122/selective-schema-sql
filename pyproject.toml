@@ -27,6 +27,7 @@ packages = ["src/sqlagent"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 addopts = "--cov --cov-report=term-missing"
 
 [tool.coverage.run]
