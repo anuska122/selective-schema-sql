@@ -69,3 +69,5 @@ def test_selector_uses_cheap_model_and_expands_joins():
     _, kw = client.calls[0]
     assert kw["model"] == "openai/gpt-oss-20b"
     assert kw["json_mode"] is True
+    assert kw["reasoning_effort"] == "low"
+    assert kw["max_tokens"] == 1024

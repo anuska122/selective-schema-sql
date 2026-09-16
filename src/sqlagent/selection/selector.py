@@ -6,7 +6,8 @@ from sqlagent.eval.types import StageTrace
 from sqlagent.index.fk_graph import FKGraph
 from sqlagent.retrieval.retriever import TableCandidate
 
-MAX_OUTPUT_TOKENS = 512
+MAX_OUTPUT_TOKENS = 1024
+REASONING_EFFORT = "low"
 
 SYSTEM_PROMPT = (
     "You pick the database tables needed to answer a question.\n"
@@ -78,6 +79,7 @@ class Selector:
             [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": user}],
             stage="select",
             model=self.model,
+            reasoning_effort=REASONING_EFFORT,
             expected_tokens=len(SYSTEM_PROMPT + user) // 3 + MAX_OUTPUT_TOKENS,
             json_mode=True,
             max_tokens=MAX_OUTPUT_TOKENS,

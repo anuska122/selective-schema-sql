@@ -12,6 +12,7 @@ from sqlagent.retrieval.retriever import Retriever
 from sqlagent.selection.selector import Selector
 
 CANDIDATES = 30
+FALLBACK_TABLES = 5
 
 
 def render_per_table(
@@ -34,6 +35,7 @@ class Selective:
         *,
         layout: str = "standard",
         candidates: int = CANDIDATES,
+        fallback_tables: int = FALLBACK_TABLES,
         model: str = llm.GENERATOR_MODEL,
         reasoning_effort: str = llm.REASONING_EFFORT,
     ):
@@ -43,6 +45,7 @@ class Selective:
         self.table_renders = table_renders
         self.layout = layout
         self.candidates = candidates
+        self.fallback_tables = fallback_tables
         self.model = model
         self.reasoning_effort = reasoning_effort
         self.config = {
@@ -52,6 +55,7 @@ class Selective:
             "temperature": 0,
             "layout": layout,
             "candidates": candidates,
+            "fallback_tables": fallback_tables,
             "schema_format": "ddl_with_keys",
             "evidence": False,
             "prompt_sha256": schema.sha256(generation.SYSTEM_PROMPT + generation.USER_TEMPLATE),
@@ -64,16 +68,22 @@ class Selective:
         candidates = self.retriever.retrieve(question.question, limit=self.candidates, db_id=db_id)
         retrieve_trace = StageTrace("retrieve", round((time.perf_counter() - start) * 1000, 2))
 
-        selection = self.selector.select(question.question, candidates)
-        tables = [t for t in selection.tables if t in self.table_renders]
+        select_start = time.perf_counter()
+        try:
+            selection = self.selector.select(question.question, candidates)
+            select_trace = selection.trace
+            tables = [t for t in selection.tables if t in self.table_renders]
+        except (ValueError, llm.LLMError):
+            select_trace = StageTrace("select_failed", round((time.perf_counter() - select_start) * 1000, 2))
+            tables = []
         if not tables:
-            tables = [c.table for c in candidates[:5] if c.table in self.table_renders]
+            tables = [c.table for c in candidates[: self.fallback_tables] if c.table in self.table_renders]
 
         schema_text = "\n\n".join(self.table_renders[t] for t in tables)
         sql, generate_trace = generation.generate_sql(
             self.client, schema_text, question.question, self.model, self.reasoning_effort
         )
-        return Prediction(sql=sql, stages=[retrieve_trace, selection.trace, generate_trace])
+        return Prediction(sql=sql, stages=[retrieve_trace, select_trace, generate_trace])
 
 
 def build_selective(

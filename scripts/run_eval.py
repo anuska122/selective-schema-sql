@@ -21,15 +21,20 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Run a strategy over the frozen sample.")
     parser.add_argument("strategy", choices=sorted(STRATEGIES))
     parser.add_argument("--limit", type=int, help="only the first N questions (smoke test)")
+    parser.add_argument("--qids", help="comma-separated question ids to run")
     args = parser.parse_args()
 
-    questions = load_sample()[: args.limit]
+    questions = load_sample()
+    if args.qids:
+        wanted = {int(q) for q in args.qids.split(",")}
+        questions = [q for q in questions if q.question_id in wanted]
+    questions = questions[: args.limit]
     run_dir = run_eval(
         STRATEGIES[args.strategy](),
         questions,
         load_gold(questions),
         prices=llm.PRICES,
-        sample_path=SAMPLE if args.limit is None else None,
+        sample_path=SAMPLE if args.limit is None and not args.qids else None,
     )
     print(run_dir.name)
     print((run_dir / "summary.json").read_text())

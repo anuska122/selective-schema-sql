@@ -1,5 +1,3 @@
-import pytest
-
 from sqlagent.eval.dataset import Question
 from sqlagent.eval.types import StageTrace
 from sqlagent.index.fk_graph import FKGraph, ForeignKey
@@ -87,7 +85,10 @@ def test_config_records_both_models_and_layout():
     assert len(strategy.config["schema_sha256"]) == 64
 
 
-def test_selector_failure_propagates_as_strategy_error():
-    strategy, _, _ = build(select_text="not json")
-    with pytest.raises(ValueError):
-        strategy.answer(QUESTION)
+def test_selector_failure_falls_back_to_top_candidates():
+    strategy, client, _ = build(select_text="not json")
+    prediction = strategy.answer(QUESTION)
+    assert prediction.sql == "SELECT 1"
+    assert [s.name for s in prediction.stages] == ["retrieve", "select_failed", "generate"]
+    generate_prompt = client.calls[1][0][1]["content"]
+    assert "CREATE TABLE account" in generate_prompt
