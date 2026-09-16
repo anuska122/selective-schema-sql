@@ -90,3 +90,47 @@ def test_compare_refuses_incomplete_runs(tmp_path):
     )
     with pytest.raises(ValueError, match="incomplete"):
         compare(a, b)
+
+
+def stage(name, **kw):
+    return {"name": name, "latency_ms": kw.pop("latency_ms", 10.0), **kw}
+
+
+def test_summary_breaks_down_stages_and_ladder(tmp_path):
+    rows = [
+        {
+            **row(1, True),
+            "stages": [stage("retrieve"), stage("generate", llm_calls=1, tokens_in=500)],
+            "details": {"rung": "generate"},
+        },
+        {
+            **row(2, False),
+            "stages": [
+                stage("retrieve", latency_ms=30.0),
+                stage("generate", llm_calls=1, tokens_in=700),
+                stage("repair", llm_calls=1, tokens_in=900),
+            ],
+            "details": {"rung": "repair"},
+        },
+    ]
+    summary = summarize(write_run(tmp_path / "run", rows))
+    assert summary["stages"]["generate"] == {
+        "questions": 2,
+        "llm_calls": 2,
+        "tokens_in": 1200,
+        "tokens_out": 0,
+        "cached_tokens": 0,
+        "p50_latency_ms": 10.0,
+    }
+    assert summary["stages"]["repair"]["questions"] == 1
+    assert summary["stages"]["retrieve"]["p50_latency_ms"] == 10.0
+    assert summary["ladder"] == {
+        "generate": {"questions": 1, "correct": 1},
+        "repair": {"questions": 1, "correct": 0},
+    }
+
+
+def test_summary_omits_the_ladder_when_no_strategy_reports_rungs(tmp_path):
+    summary = summarize(write_run(tmp_path / "run", [row(1, True)]))
+    assert "ladder" not in summary
+    assert summary["stages"] == {}

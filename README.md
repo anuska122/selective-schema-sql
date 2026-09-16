@@ -43,12 +43,12 @@ Design rules:
 
 | Milestone | Scope | State |
 |---|---|---|
-| M1 | Eval harness + full-schema baseline | **Done bar the variance re-run**: baseline scores 46% EX without evidence hints |
-| M2 | Offline indexer | **In progress**: FK graph with inferred keys, value index, descriptions, embeddings |
-| M3 | Retriever, measuring schema-linking recall (go/no-go) | Not started |
-| M4 | Selector | Not started |
-| M5 | Validator + escalation ladder | Not started |
-| M6 | Observability, then FastAPI | Not started |
+| M1 | Eval harness + full-schema baseline | **Done bar the variance re-run**: baseline scores 50% EX without evidence hints |
+| M2 | Offline indexer | **Done**: FK graph with inferred keys, value index, descriptions, embeddings |
+| M3 | Retriever (go/no-go) | **Passed**: 99.3% of needed tables in the top 30 |
+| M4 | Selector | **Done**: retrieve → select → generate; clean measurement pending |
+| M5 | Validator + escalation ladder | **Done**: parse, name checks, EXPLAIN, repair then widen |
+| M6 | Observability, then FastAPI | **Done**: per-stage reporting in run summaries, ask endpoint |
 
 Work is tracked in GitHub issues, one per task, grouped by milestone.
 Architectural decisions are issues labelled `decision`.
@@ -162,6 +162,22 @@ Everything lands in `data/index/`, which is gitignored. Descriptions and sampled
 values are treated as untrusted text: they are generated from database content
 and end up in prompts.
 
+## API (M6)
+
+```sh
+uv run uvicorn sqlagent.api.app:app --port 8000
+curl -s localhost:8000/health
+curl -s localhost:8000/ask -H 'content-type: application/json' \
+  -d '{"question": "how many superheroes have blue eyes?"}'
+```
+
+`POST /ask` runs retrieve → select → generate → validate → repair and returns
+the SQL, up to 100 result rows, and the per-stage trace (calls, tokens,
+latency, which rung was reached). The offline index must be built first, and
+`GROQ_API_KEY` must be set. Results come back through the same read-only,
+audited query path as everything else. There is no authentication: run it
+locally, not on a public address.
+
 ## Security model
 
 All generated SQL is treated as untrusted. The controls sit in the database, not
@@ -197,7 +213,7 @@ the role; `tests/test_db.py` covers the query path.
 docker-compose.yml         Postgres 16 for local development
 sql/00_roles.sql           read-only role and privileges
 scripts/                   setup, sample, gold cache, run_eval, compare
-src/sqlagent/              config, db (single query path), eval/, index/ (fk graph, values, descriptions, embeddings), strategies/
+src/sqlagent/              config, db, generation, eval/, index/, retrieval/, selection/, validation/, strategies/, api/
 tests/                     security and unit tests; fixtures/ for CI
 eval/                      committed eval artifacts: table → database map, frozen sample
 data/  runs/               gitignored: dataset, offline index, run outputs
