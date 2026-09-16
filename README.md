@@ -107,7 +107,17 @@ gold result cache once, then run a strategy:
 ```sh
 uv run python scripts/cache_gold.py
 uv run python scripts/run_eval.py gold_oracle
+uv run python scripts/run_eval.py full_schema --limit 3
+uv run python scripts/run_eval.py full_schema
 ```
+
+`full_schema` is the baseline: each question's own database as `CREATE TABLE`
+DDL with keys and 3 sample rows, sent to `openai/gpt-oss-120b` on Groq
+(`reasoning_effort=medium`, temperature 0, no evidence hints). It needs
+`GROQ_API_KEY` in `.env`. It runs within the Groq free tier: requests are paced
+to the per-minute token limit, and a run stops with `QuotaExhausted` rather than
+waiting out the daily limit. A full 50-question run uses about 150K tokens, so
+plan one per day. Use `--limit` for smoke tests.
 
 Each run writes three files to `runs/<timestamp>_<strategy>/`:
 
@@ -146,8 +156,10 @@ in the prompt.
   - Results come through a server-side cursor (which also rejects multi-statement
     input at the protocol level), capped at 10,000 rows with a `truncated` flag.
   - Every call, including rejected ones, is appended to `audit/queries.jsonl`.
-- **Planned:** retrieved schema descriptions and sampled values are handled as
-  untrusted, since they are a prompt-injection surface.
+- **Untrusted prompt data:** sample values are sanitised (whitespace collapsed,
+  comment and tag delimiters escaped, truncated) and wrapped in `<schema>` tags
+  that the model is told to treat as data. Whatever the model returns still has
+  to pass `db.execute`.
 
 `tests/test_security.py` proves each database control by connecting directly as
 the role; `tests/test_db.py` covers the query path.

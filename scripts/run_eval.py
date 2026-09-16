@@ -1,21 +1,33 @@
 import argparse
 import sys
 
+from sqlagent import llm
 from sqlagent.eval.dataset import SAMPLE, load_sample
 from sqlagent.eval.gold import load_gold
 from sqlagent.eval.runner import run_eval
+from sqlagent.strategies.full_schema import FullSchema
 from sqlagent.strategies.oracle import GoldOracle
 
-STRATEGIES = {"gold_oracle": GoldOracle}
+STRATEGIES = {
+    "gold_oracle": GoldOracle,
+    "full_schema": lambda: FullSchema(llm.GroqClient()),
+}
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run a strategy over the frozen sample.")
     parser.add_argument("strategy", choices=sorted(STRATEGIES))
+    parser.add_argument("--limit", type=int, help="only the first N questions (smoke test)")
     args = parser.parse_args()
 
-    questions = load_sample()
-    run_dir = run_eval(STRATEGIES[args.strategy](), questions, load_gold(questions), sample_path=SAMPLE)
+    questions = load_sample()[: args.limit]
+    run_dir = run_eval(
+        STRATEGIES[args.strategy](),
+        questions,
+        load_gold(questions),
+        prices=llm.PRICES,
+        sample_path=SAMPLE if args.limit is None else None,
+    )
     print(run_dir.name)
     print((run_dir / "summary.json").read_text())
     return 0
