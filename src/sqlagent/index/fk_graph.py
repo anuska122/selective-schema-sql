@@ -25,6 +25,9 @@ class ForeignKey:
     columns: tuple[str, ...]
     ref_table: str
     ref_columns: tuple[str, ...]
+    source: str = "declared"
+    rule: str | None = None
+    coverage: float | None = None
 
     def join_condition(self) -> str:
         return " AND ".join(
@@ -139,7 +142,9 @@ class FKGraph:
     @classmethod
     def from_dict(cls, data: dict) -> "FKGraph":
         fks = [
-            ForeignKey(f["name"], f["table"], tuple(f["columns"]), f["ref_table"], tuple(f["ref_columns"]))
+            ForeignKey(
+                **{**f, "columns": tuple(f["columns"]), "ref_columns": tuple(f["ref_columns"])},
+            )
             for f in data["foreign_keys"]
         ]
         return cls(fks, data["tables"])
