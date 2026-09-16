@@ -13,6 +13,7 @@ class StageTrace:
     tokens_in: int = 0
     tokens_out: int = 0
     cached_tokens: int = 0
+    wait_ms: float = 0.0
 
 
 @dataclass(frozen=True)

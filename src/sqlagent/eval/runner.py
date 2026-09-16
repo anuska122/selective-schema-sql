@@ -46,7 +46,8 @@ def evaluate_question(
     except Exception as e:
         prediction = Prediction(sql=None)
         strategy_error = f"strategy_error: {type(e).__name__}: {e}"
-    latency_ms = round((time.perf_counter() - start) * 1000, 2)
+    wait_ms = sum(s.wait_ms for s in prediction.stages)
+    latency_ms = round((time.perf_counter() - start) * 1000 - wait_ms, 2)
 
     row = {
         "qid": question.question_id,
@@ -63,6 +64,7 @@ def evaluate_question(
         "tokens_out": sum(s.tokens_out for s in prediction.stages),
         "cached_tokens": sum(s.cached_tokens for s in prediction.stages),
         "latency_ms": latency_ms,
+        "rate_limit_wait_ms": round(wait_ms, 2),
         "cost_usd": sum(stage_cost_usd(s, prices) for s in prediction.stages),
         "stages": [asdict(s) for s in prediction.stages],
     }
