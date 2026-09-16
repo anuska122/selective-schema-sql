@@ -86,6 +86,8 @@ class GroqClient:
         model: str = GENERATOR_MODEL,
         reasoning_effort: str = REASONING_EFFORT,
         expected_tokens: int = 0,
+        json_mode: bool = False,
+        max_tokens: int | None = None,
     ) -> LLMResponse:
         body = {
             "model": model,
@@ -93,6 +95,10 @@ class GroqClient:
             "temperature": 0,
             "reasoning_effort": reasoning_effort,
         }
+        if json_mode:
+            body["response_format"] = {"type": "json_object"}
+        if max_tokens:
+            body["max_completion_tokens"] = max_tokens
         waited = self._wait_for_budget(model, expected_tokens)
         for attempt in range(1, MAX_ATTEMPTS + 1):
             start = self._clock()

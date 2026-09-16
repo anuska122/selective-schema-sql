@@ -172,3 +172,13 @@ def test_every_model_has_a_price():
     assert set(llm.PRICES) == {llm.GENERATOR_MODEL, llm.SELECTOR_MODEL}
     for price in llm.PRICES.values():
         assert set(price) == {"input", "cached_input", "output"}
+
+
+def test_json_mode_sets_response_format():
+    client, requests, _ = client_with([httpx.Response(200, json=OK_BODY), httpx.Response(200, json=OK_BODY)])
+    client.complete([], stage="s", json_mode=True, max_tokens=4096)
+    client.complete([], stage="s")
+    assert requests[0]["response_format"] == {"type": "json_object"}
+    assert requests[0]["max_completion_tokens"] == 4096
+    assert "response_format" not in requests[1]
+    assert "max_completion_tokens" not in requests[1]
