@@ -93,6 +93,16 @@ def build_documents(
     return docs
 
 
+def save_documents(documents: list[SchemaDocument], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = [{"id": d.id, "text": d.text, "metadata": d.metadata} for d in documents]
+    path.write_text(json.dumps(payload, indent=1) + "\n")
+
+
+def load_documents(path: Path) -> list[SchemaDocument]:
+    return [SchemaDocument(d["id"], d["text"], d["metadata"]) for d in json.loads(path.read_text())]
+
+
 class SchemaIndex:
     def __init__(self, embedder: Embedder, path: Path = CHROMA_PATH):
         self.embedder = embedder

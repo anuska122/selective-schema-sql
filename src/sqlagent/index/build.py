@@ -71,6 +71,7 @@ def build(
     for c in columns:
         column_types.setdefault(c.table, {})[c.name] = c.data_type
     documents = emb.build_documents(databases, store.tables, column_types)
+    emb.save_documents(documents, index_dir / "documents.json")
     index = emb.SchemaIndex(embedder or emb.FastEmbedEmbedder(), path=index_dir / "chroma")
     index.rebuild(documents, progress=lambda done, total: log(f"embedding {done}/{total}"))
     log(f"embeddings: {len(documents)} documents")
