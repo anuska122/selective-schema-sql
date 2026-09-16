@@ -1,3 +1,4 @@
+import difflib
 import json
 import re
 from dataclasses import asdict, dataclass, field
@@ -43,6 +44,15 @@ def clean(text) -> str:
     return text[: MAX_DESCRIPTION_CHARS - 1] + "…" if len(text) > MAX_DESCRIPTION_CHARS else text
 
 
+def match_column(name: str, by_lower: dict[str, str], taken: dict[str, str]) -> str | None:
+    key = name.strip().strip('"').strip("'").lower()
+    if key in by_lower:
+        return by_lower[key]
+    remaining = [c for c in by_lower if by_lower[c] not in taken]
+    close = difflib.get_close_matches(key, remaining, n=1, cutoff=0.9)
+    return by_lower[close[0]] if close else None
+
+
 def parse_response(text: str, real_columns: list[str]) -> tuple[str, dict[str, str], list[str], list[str]]:
     start, end = text.find("{"), text.rfind("}")
     if start < 0 or end < start:
@@ -54,7 +64,7 @@ def parse_response(text: str, real_columns: list[str]) -> tuple[str, dict[str, s
     by_lower = {c.lower(): c for c in real_columns}
     columns, invented = {}, []
     for name, description in raw_columns.items():
-        real = by_lower.get(str(name).lower())
+        real = match_column(str(name), by_lower, columns)
         if real is None:
             invented.append(str(name))
         elif description:
