@@ -43,8 +43,8 @@ Design rules:
 
 | Milestone | Scope | State |
 |---|---|---|
-| M1 | Eval harness + full-schema baseline | **Done bar the variance re-run**: baseline scores 46% EX without evidence hints |
-| M2 | Offline indexer | **In progress**: FK graph with inferred keys, value index, descriptions, embeddings |
+| M1 | Eval harness + full-schema baseline | **Done bar the variance re-run**: baseline scores 50% EX without evidence hints |
+| M2 | Offline indexer | **Done**: FK graph with inferred keys, value index, descriptions, embeddings |
 | M3 | Retriever (go/no-go) | **Passed**: 99.3% of needed tables in the top 30 |
 | M4 | Selector | **Done**: retrieve → select → generate; clean measurement pending |
 | M5 | Validator + escalation ladder | **Done**: parse, name checks, EXPLAIN, repair then widen |
