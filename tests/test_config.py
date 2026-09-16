@@ -44,3 +44,24 @@ def test_ro_dsn_fails_loudly_without_password(clean_env, tmp_path):
     clean_env.setattr(config, "ROOT", tmp_path)
     with pytest.raises(KeyError):
         config.ro_dsn()
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("KEY='single'", "single"),
+        ('KEY="double"', "double"),
+        ("KEY=plain", "plain"),
+        ("KEY = 'spaced' ", "spaced"),
+        ("KEY='mismatched\"", "'mismatched\""),
+        ("KEY='", "'"),
+        ("KEY=''", ""),
+        ("KEY='it's'", "it's"),
+    ],
+)
+def test_load_env_strips_one_pair_of_matching_quotes(tmp_path, clean_env, raw, expected):
+    clean_env.delenv("KEY", raising=False)
+    env = tmp_path / ".env"
+    env.write_text(raw + "\n")
+    config.load_env(env)
+    assert config.os.environ["KEY"] == expected
