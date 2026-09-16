@@ -151,3 +151,15 @@ def test_strategy_artifacts_are_saved_with_the_run(tmp_path):
     without = runner.run_eval(GoldOracle(), QUESTIONS, GOLD, runs_dir=tmp_path / "b", execute=execute)
     assert json.loads((with_artifacts / "artifacts.json").read_text()) == WithArtifacts.artifacts
     assert not (without / "artifacts.json").exists()
+
+
+def test_run_stops_and_marks_incomplete_when_quota_is_exhausted(tmp_path):
+    from sqlagent.llm import QuotaExhausted
+
+    strategy = Scripted({1: Prediction("SELECT 1"), 2: QuotaExhausted("daily limit")})
+    execute = fake_execute({"SELECT 1": QueryResult(rows=[(1,)])})
+    run_dir = runner.run_eval(strategy, QUESTIONS, GOLD, runs_dir=tmp_path, execute=execute)
+
+    assert len(read_results(run_dir)) == 1
+    summary = json.loads((run_dir / "summary.json").read_text())
+    assert summary["incomplete"] == {"reason": "daily limit", "answered": 1, "planned": 2}

@@ -80,3 +80,13 @@ def test_compare_refuses_different_question_sets(tmp_path):
     b = write_run(tmp_path / "b", [row(2, True)])
     with pytest.raises(ValueError, match="different questions"):
         compare(a, b)
+
+
+def test_compare_refuses_incomplete_runs(tmp_path):
+    a = write_run(tmp_path / "a", [row(1, True)])
+    b = write_run(tmp_path / "b", [row(1, True)])
+    (b / "summary.json").write_text(
+        json.dumps({"incomplete": {"reason": "quota", "answered": 1, "planned": 50}})
+    )
+    with pytest.raises(ValueError, match="incomplete"):
+        compare(a, b)

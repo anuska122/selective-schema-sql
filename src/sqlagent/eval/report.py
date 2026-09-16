@@ -20,7 +20,7 @@ def _ex(rows: list[dict]) -> dict:
     return {"n": len(rows), "correct": correct, "ex": round(100 * correct / len(rows), 2) if rows else None}
 
 
-def summarize(run_dir: Path) -> dict:
+def summarize(run_dir: Path, incomplete: str | None = None, answered: int = 0, planned: int = 0) -> dict:
     rows = load_results(run_dir)
     config = json.loads((run_dir / "config.json").read_text())
     by_difficulty = defaultdict(list)
@@ -44,11 +44,17 @@ def summarize(run_dir: Path) -> dict:
         },
         "latency_ms": {"p50": percentile(latencies, 50), "p95": percentile(latencies, 95)},
     }
+    if incomplete:
+        summary["incomplete"] = {"reason": incomplete, "answered": answered, "planned": planned}
     (run_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
     return summary
 
 
 def compare(run_a: Path, run_b: Path) -> dict:
+    for run in (run_a, run_b):
+        summary_path = run / "summary.json"
+        if summary_path.exists() and json.loads(summary_path.read_text()).get("incomplete"):
+            raise ValueError(f"{run.name} is incomplete; re-run it before comparing")
     a = {r["qid"]: r for r in load_results(run_a)}
     b = {r["qid"]: r for r in load_results(run_b)}
     if a.keys() != b.keys():
