@@ -20,6 +20,44 @@ def _ex(rows: list[dict]) -> dict:
     return {"n": len(rows), "correct": correct, "ex": round(100 * correct / len(rows), 2) if rows else None}
 
 
+def stage_breakdown(rows: list[dict]) -> dict:
+    stages: dict[str, dict] = {}
+    for row in rows:
+        for stage in row.get("stages", []):
+            entry = stages.setdefault(
+                stage["name"],
+                {
+                    "questions": 0,
+                    "llm_calls": 0,
+                    "tokens_in": 0,
+                    "tokens_out": 0,
+                    "cached_tokens": 0,
+                    "latencies": [],
+                },
+            )
+            entry["questions"] += 1
+            for key in ("llm_calls", "tokens_in", "tokens_out", "cached_tokens"):
+                entry[key] += stage.get(key, 0)
+            entry["latencies"].append(stage.get("latency_ms", 0.0))
+    return {
+        name: {
+            **{k: v for k, v in entry.items() if k != "latencies"},
+            "p50_latency_ms": percentile(entry["latencies"], 50),
+        }
+        for name, entry in sorted(stages.items())
+    }
+
+
+def ladder_breakdown(rows: list[dict]) -> dict:
+    rungs = Counter(row["details"].get("rung") for row in rows if row.get("details", {}).get("rung"))
+    if not rungs:
+        return {}
+    correct = Counter(
+        row["details"]["rung"] for row in rows if row.get("details", {}).get("rung") and row["correct"]
+    )
+    return {rung: {"questions": n, "correct": correct[rung]} for rung, n in sorted(rungs.items())}
+
+
 def summarize(run_dir: Path, incomplete: str | None = None, answered: int = 0, planned: int = 0) -> dict:
     rows = load_results(run_dir)
     config = json.loads((run_dir / "config.json").read_text())
@@ -43,7 +81,11 @@ def summarize(run_dir: Path, incomplete: str | None = None, answered: int = 0, p
             "cost_usd": round(cost / n, 6),
         },
         "latency_ms": {"p50": percentile(latencies, 50), "p95": percentile(latencies, 95)},
+        "stages": stage_breakdown(rows),
     }
+    ladder = ladder_breakdown(rows)
+    if ladder:
+        summary["ladder"] = ladder
     if incomplete:
         summary["incomplete"] = {"reason": incomplete, "answered": answered, "planned": planned}
     (run_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
