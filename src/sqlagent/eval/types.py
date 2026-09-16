@@ -20,6 +20,7 @@ class StageTrace:
 class Prediction:
     sql: str | None
     stages: list[StageTrace] = field(default_factory=list)
+    details: dict[str, Any] = field(default_factory=dict)
 
 
 class Strategy(Protocol):

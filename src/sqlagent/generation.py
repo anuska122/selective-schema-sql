@@ -13,6 +13,10 @@ SYSTEM_PROMPT = (
     "and nothing else: no explanation, no markdown."
 )
 USER_TEMPLATE = "<schema>\n{schema}\n</schema>\n\nQuestion: {question}"
+REPAIR_TEMPLATE = (
+    "<schema>\n{schema}\n</schema>\n\nQuestion: {question}\n\n"
+    "This query was rejected:\n{sql}\n\nReason: {error}\n\nReturn one corrected PostgreSQL SELECT."
+)
 
 _FENCE = re.compile(r"```(?:sql)?\s*(.*?)```", re.S | re.I)
 
@@ -35,6 +39,27 @@ def generate_sql(
     response = client.complete(
         messages,
         stage="generate",
+        model=model,
+        reasoning_effort=reasoning_effort,
+        expected_tokens=len(SYSTEM_PROMPT + user) // 3 + OUTPUT_TOKEN_RESERVE,
+    )
+    return extract_sql(response.text), response.trace
+
+
+def repair_sql(
+    client: llm.GroqClient,
+    schema_text: str,
+    question: str,
+    sql: str | None,
+    error: str,
+    model: str = llm.GENERATOR_MODEL,
+    reasoning_effort: str = llm.REASONING_EFFORT,
+) -> tuple[str | None, StageTrace]:
+    user = REPAIR_TEMPLATE.format(schema=schema_text, question=question, sql=sql or "", error=error)
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": user}]
+    response = client.complete(
+        messages,
+        stage="repair",
         model=model,
         reasoning_effort=reasoning_effort,
         expected_tokens=len(SYSTEM_PROMPT + user) // 3 + OUTPUT_TOKEN_RESERVE,
