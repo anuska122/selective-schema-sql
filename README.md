@@ -43,8 +43,8 @@ Design rules:
 
 | Milestone | Scope | State |
 |---|---|---|
-| M1 | Eval harness + full-schema baseline | **In progress**: data, read-only role, query path, frozen sample, gold cache, runner and reports done; LLM baseline next |
-| M2 | Offline indexer | Not started |
+| M1 | Eval harness + full-schema baseline | **Done bar the variance re-run**: baseline scores 46% EX without evidence hints |
+| M2 | Offline indexer | **In progress**: FK graph with inferred keys, value index, descriptions, embeddings |
 | M3 | Retriever, measuring schema-linking recall (go/no-go) | Not started |
 | M4 | Selector | Not started |
 | M5 | Validator + escalation ladder | Not started |
@@ -135,6 +135,33 @@ points, so read the fixed and broken lists, not just the EX delta:
 uv run python scripts/compare.py runs/<run_a> runs/<run_b>
 ```
 
+## Offline index (M2)
+
+Built once per schema, used by the retriever. No LLM at query time.
+
+```sh
+uv run python scripts/describe_schema.py
+uv run python scripts/build_index.py
+```
+
+`describe_schema.py` writes one table and column description per table with
+`gpt-oss-20b`. It is resumable: re-running skips tables whose schema is
+unchanged, so a run interrupted by the free-tier daily limit continues the next
+day. `build_index.py` then builds everything else and refuses to run while any
+table is undescribed:
+
+| Part | What it holds | LLM |
+|---|---|---|
+| `fk_graph.json` | declared foreign keys plus keys inferred from names and verified against the data | no |
+| `values.json` | distinct values of low-cardinality text columns, for keyword lookup | no |
+| `descriptions.json` | table and column descriptions, with per-table token cost | yes, offline |
+| `chroma/` | embeddings of one document per table and per column (fastembed `bge-small-en-v1.5`, local) | no |
+| `manifest.json` | counts, per-part content hashes, a combined content hash, and the offline token cost | — |
+
+Everything lands in `data/index/`, which is gitignored. Descriptions and sampled
+values are treated as untrusted text: they are generated from database content
+and end up in prompts.
+
 ## Security model
 
 All generated SQL is treated as untrusted. The controls sit in the database, not
@@ -170,10 +197,10 @@ the role; `tests/test_db.py` covers the query path.
 docker-compose.yml         Postgres 16 for local development
 sql/00_roles.sql           read-only role and privileges
 scripts/                   setup, sample, gold cache, run_eval, compare
-src/sqlagent/              config, db (single query path), eval/ (dataset, gold, runner, metrics, reports), strategies/
+src/sqlagent/              config, db (single query path), eval/, index/ (fk graph, values, descriptions, embeddings), strategies/
 tests/                     security and unit tests; fixtures/ for CI
 eval/                      committed eval artifacts: table → database map, frozen sample
-data/  runs/               gitignored: dataset, run outputs
+data/  runs/               gitignored: dataset, offline index, run outputs
 ```
 
 ## Contributing
