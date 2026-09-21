@@ -83,7 +83,7 @@ export default function Home() {
         <div className="flex items-center gap-2 border-b border-stone-200 px-4 py-3 md:hidden dark:border-stone-800">
           <Mark className="size-6" />
           <span className="font-serif text-stone-800 dark:text-stone-100">Ask your database</span>
-          <button type="button" onClick={() => setActiveId(null)} className="ml-auto text-sm text-clay-600">
+          <button type="button" onClick={() => setActiveId(null)} className="ml-auto text-sm text-accent-600">
             New
           </button>
         </div>

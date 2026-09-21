@@ -61,7 +61,7 @@ export function Composer({ value, onChange, onSend, busy, dbLabel, autoFocus }: 
           type="submit"
           aria-label="Send"
           disabled={!canSend}
-          className="ml-auto grid size-8 place-items-center rounded-lg bg-clay-600 text-white transition hover:bg-clay-700 disabled:cursor-not-allowed disabled:bg-stone-300 dark:disabled:bg-stone-700"
+          className="ml-auto grid size-8 place-items-center rounded-lg bg-accent-600 text-white transition hover:bg-accent-700 disabled:cursor-not-allowed disabled:bg-stone-300 dark:disabled:bg-stone-700"
         >
           {busy ? (
             <span className="size-3 rounded-[3px] bg-white" />

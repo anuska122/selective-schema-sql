@@ -16,13 +16,13 @@ export function PendingSteps() {
       {STEPS.slice(0, active + 1).map((step, i) => (
         <li key={step} className="flex animate-rise items-center gap-2.5 text-sm">
           {i < active ? (
-            <span className="text-clay-600" aria-hidden>
+            <span className="text-accent-600" aria-hidden>
               ✓
             </span>
           ) : (
             <span className="flex gap-0.5" aria-hidden>
               {[0, 1, 2].map((d) => (
-                <span key={d} className="size-1.5 animate-blink rounded-full bg-clay-600" style={{ animationDelay: `${d * 150}ms` }} />
+                <span key={d} className="size-1.5 animate-blink rounded-full bg-accent-600" style={{ animationDelay: `${d * 150}ms` }} />
               ))}
             </span>
           )}
