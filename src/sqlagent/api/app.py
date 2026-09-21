@@ -1,14 +1,17 @@
 import json
+import logging
 from functools import lru_cache
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from sqlagent.api.service import AskService
+from sqlagent.errors import AbortRun
 from sqlagent.index.build import TABLE_MAP
 from sqlagent.strategies.selective import build_selective
 
 app = FastAPI(title="Selective-schema text-to-SQL", version="0.1.0")
+log = logging.getLogger("sqlagent.api")
 
 
 class AskRequest(BaseModel):
@@ -36,5 +39,11 @@ def databases() -> list[dict]:
 def ask(request: AskRequest) -> dict:
     try:
         return get_service().ask(request.question, request.db_id)
+    except AbortRun as e:
+        log.warning("ask stopped: %s", e)
+        raise HTTPException(
+            status_code=503, detail="The model is out of quota for now. Try again later."
+        ) from e
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"{type(e).__name__}: {e}") from e
+        log.exception("ask failed")
+        raise HTTPException(status_code=502, detail="Something went wrong answering this question.") from e

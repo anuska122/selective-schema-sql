@@ -81,13 +81,41 @@ def execute(
     max_rows: int = MAX_ROWS,
     timeout_ms: int = STATEMENT_TIMEOUT_MS,
     audit_path: Path | None = None,
-    skip_validation: bool = False,
-    server_cursor: bool = True,
+) -> QueryResult:
+    return _run(
+        query, validate_select, caller, question_id, max_rows, timeout_ms, audit_path, server_cursor=True
+    )
+
+
+def explain(
+    query: str,
+    *,
+    caller: str,
+    question_id: int | str | None = None,
+    timeout_ms: int = STATEMENT_TIMEOUT_MS,
+    audit_path: Path | None = None,
+) -> QueryResult:
+    def as_explain(sql: str) -> str:
+        return f"EXPLAIN {validate_select(sql)}"
+
+    return _run(query, as_explain, caller, question_id, MAX_ROWS, timeout_ms, audit_path, server_cursor=False)
+
+
+def _run(
+    query: str,
+    prepare,
+    caller: str,
+    question_id: int | str | None,
+    max_rows: int,
+    timeout_ms: int,
+    audit_path: Path | None,
+    *,
+    server_cursor: bool,
 ) -> QueryResult:
     start = time.perf_counter()
     result: QueryResult
     try:
-        checked = query.strip().rstrip(";").strip() if skip_validation else validate_select(query)
+        checked = prepare(query)
         with psycopg.connect(config.ro_dsn(), connect_timeout=5) as conn, conn.transaction():
             conn.execute("SET TRANSACTION READ ONLY")
             conn.execute(sql.SQL("SET LOCAL statement_timeout = {}").format(sql.Literal(timeout_ms)))
@@ -110,31 +138,6 @@ def execute(
         result = QueryResult(duration_ms=_elapsed_ms(start), error=_first_line(e), error_type="db_error")
     _audit(audit_path or config.ROOT / "audit" / "queries.jsonl", caller, question_id, query, result)
     return result
-
-
-def explain(
-    query: str,
-    *,
-    caller: str,
-    question_id: int | str | None = None,
-    timeout_ms: int = STATEMENT_TIMEOUT_MS,
-    audit_path: Path | None = None,
-) -> QueryResult:
-    try:
-        checked = validate_select(query)
-    except RejectedQuery as e:
-        result = QueryResult(error=str(e), error_type="rejected")
-        _audit(audit_path or config.ROOT / "audit" / "queries.jsonl", caller, question_id, query, result)
-        return result
-    return execute(
-        f"EXPLAIN {checked}",
-        caller=caller,
-        question_id=question_id,
-        timeout_ms=timeout_ms,
-        audit_path=audit_path,
-        skip_validation=True,
-        server_cursor=False,
-    )
 
 
 def _elapsed_ms(start: float) -> float:

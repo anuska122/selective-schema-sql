@@ -87,11 +87,24 @@ def test_ask_endpoint_rejects_empty_question(client):
     assert client.post("/ask", json={"question": ""}).status_code == 422
 
 
-def test_ask_endpoint_reports_backend_failure(client, monkeypatch):
-    monkeypatch.setattr(app_module, "get_service", lambda: service(prediction=RuntimeError("model down")))
+def test_ask_endpoint_hides_internal_errors(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module, "get_service", lambda: service(prediction=RuntimeError("secret internals"))
+    )
     response = client.post("/ask", json={"question": "q"})
     assert response.status_code == 502
-    assert "model down" in response.json()["detail"]
+    assert "secret internals" not in response.text
+    assert response.json()["detail"] == "Something went wrong answering this question."
+
+
+def test_ask_endpoint_reports_quota_without_provider_details(client, monkeypatch):
+    from sqlagent.llm import QuotaExhausted
+
+    error = QuotaExhausted("limit resets in 400s: organization org_01secret on tokens per day")
+    monkeypatch.setattr(app_module, "get_service", lambda: service(prediction=error))
+    response = client.post("/ask", json={"question": "q"})
+    assert response.status_code == 503
+    assert "org_01secret" not in response.text
 
 
 def test_databases_lists_every_database_with_tables(client):

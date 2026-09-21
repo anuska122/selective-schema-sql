@@ -146,3 +146,25 @@ def test_server_cursor_blocks_multi_statement_even_if_validator_bypassed(databas
     result = run("SELECT 1; SET statement_timeout = 0", audit)
     assert result.error_type == "db_error"
     assert "multiple commands" in result.error
+
+
+def test_there_is_no_way_to_skip_validation():
+    import inspect
+
+    for function in (db.execute, db.explain):
+        assert "skip_validation" not in inspect.signature(function).parameters
+
+
+def test_explain_rejects_non_select_before_the_database(audit, monkeypatch):
+    monkeypatch.setattr(
+        db.psycopg, "connect", lambda *a, **k: (_ for _ in ()).throw(AssertionError("contacted"))
+    )
+    result = db.explain("DROP TABLE colour", caller="test", audit_path=audit)
+    assert result.error_type == "rejected"
+    assert audit_records(audit)[0]["error_type"] == "rejected"
+
+
+def test_explain_runs_valid_sql(database, audit):
+    assert db.explain("SELECT count(*) FROM colour", caller="test", audit_path=audit).ok
+    bad = db.explain("SELECT nope FROM colour", caller="test", audit_path=audit)
+    assert bad.error_type == "db_error"

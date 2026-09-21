@@ -6,6 +6,15 @@ function post(body: unknown) {
 }
 
 describe("POST /api/ask", () => {
+  it("rejects oversized bodies before parsing", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const response = await POST(
+      new Request("http://localhost/api/ask", { method: "POST", body: "x".repeat(20_000) }),
+    );
+    expect(response.status).toBe(413);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   it("rejects empty and oversized questions without calling the backend", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     expect((await post({ question: "   " })).status).toBe(400);

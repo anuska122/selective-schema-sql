@@ -1,9 +1,20 @@
 import { forward } from "@/lib/backend";
 
 const MAX_QUESTION_LENGTH = 2000;
+const MAX_BODY_BYTES = 16_384;
 
 export async function POST(request: Request) {
-  const body = await request.json().catch(() => null);
+  const raw = await request.text();
+  if (new TextEncoder().encode(raw).length > MAX_BODY_BYTES) {
+    return Response.json({ detail: "Request too large." }, { status: 413 });
+  }
+  const body = (() => {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  })();
   const question = typeof body?.question === "string" ? body.question.trim() : "";
   const dbId = typeof body?.db_id === "string" ? body.db_id : "";
 
