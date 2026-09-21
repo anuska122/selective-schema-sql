@@ -206,9 +206,10 @@ locally, not on a public address.
 
 ## Web app (M7)
 
-A chat-style Next.js + TypeScript app in `web/`. Ask a question and the answer
-appears as a reply: a single value as a big number, otherwise a table, with the
-SQL and a per-stage breakdown in expandable sections. Past questions are kept
+A chat-style Next.js + TypeScript app in `web/`. Each answer plays a short
+animated diagram of how it was found: the tables searched, the ones chosen,
+the join between them with the columns the query read, then the result. Rows
+follow as a table, with the SQL and timings in expandable sections. Past questions are kept
 in the sidebar (stored in your browser), and the database can be narrowed from
 the sidebar. Enter sends, Shift+Enter adds a line. Light and dark themes follow
 the system setting.

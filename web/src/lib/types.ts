@@ -9,6 +9,14 @@ export type Stage = {
   wait_ms: number;
 };
 
+export type Join = {
+  from: string;
+  from_columns: string[];
+  to: string;
+  to_columns: string[];
+  inferred: boolean;
+};
+
 export type AskResponse = {
   question: string;
   sql: string | null;
@@ -19,6 +27,8 @@ export type AskResponse = {
   stages: Stage[];
   details: {
     candidates?: string[];
+    joins?: Join[];
+    columns?: Record<string, string[]>;
     selected?: string[];
     rung?: string;
     validation?: string | null;

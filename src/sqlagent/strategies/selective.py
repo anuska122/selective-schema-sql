@@ -7,6 +7,7 @@ from sqlagent.eval.dataset import Question
 from sqlagent.eval.types import Prediction, StageTrace
 from sqlagent.index.build import INDEX_DIR, TABLE_MAP
 from sqlagent.index.fk_graph import FKGraph
+from sqlagent.lineage import query_lineage
 from sqlagent.retrieval.loading import load_retriever
 from sqlagent.retrieval.retriever import Retriever, TableCandidate
 from sqlagent.selection.selector import Selector
@@ -101,6 +102,11 @@ class Selective:
     def _check(self, sql: str | None, question: Question) -> Validation | None:
         return self.validator.validate(sql, question_id=question.question_id) if self.validator else None
 
+    def _finish(self, sql: str | None, stages: list[StageTrace], details: dict) -> Prediction:
+        tables = details.get("widened") or details.get("selected", [])
+        details.update(query_lineage(sql, tables, self.selector.graph))
+        return Prediction(sql=sql, stages=stages, details=details)
+
     def answer(self, question: Question) -> Prediction:
         start = time.perf_counter()
         stages: list[StageTrace] = []
@@ -126,7 +132,7 @@ class Selective:
         check = self._check(sql, question)
         if check is None or check.ok:
             details["validation"] = check.stage if check else None
-            return Prediction(sql=sql, stages=stages, details=details)
+            return self._finish(sql, stages, details)
 
         details["first_error"] = check.message
         sql, trace = generation.repair_sql(
@@ -143,7 +149,7 @@ class Selective:
         check = self._check(sql, question)
         if check.ok:
             details["validation"] = "ok"
-            return Prediction(sql=sql, stages=stages, details=details)
+            return self._finish(sql, stages, details)
 
         widened = sorted(
             {*tables, *[c.table for c in candidates[: self.widen_tables] if c.table in self.table_renders]}
@@ -155,7 +161,7 @@ class Selective:
         stages.append(trace)
         final = self._check(sql, question)
         details["validation"] = final.stage if final else None
-        return Prediction(sql=sql, stages=stages, details=details)
+        return self._finish(sql, stages, details)
 
 
 def build_selective(

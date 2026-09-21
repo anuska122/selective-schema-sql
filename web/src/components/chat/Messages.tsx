@@ -2,6 +2,7 @@ import type { Message } from "@/lib/chat";
 import { ResultsTable } from "../ResultsTable";
 import { SqlView } from "../SqlView";
 import { formatMs, StageTimeline } from "../StageTimeline";
+import { AnswerFlow } from "./AnswerFlow";
 import { Disclosure } from "./Disclosure";
 import { Mark } from "./Mark";
 import { PendingSteps } from "./PendingSteps";
@@ -35,31 +36,23 @@ export function AssistantMessage({ message }: { message: Extract<Message, { role
 
 function Answer({ message }: { message: Extract<Message, { status: "done" }> }) {
   const { answer } = message;
-  const selected = answer.details.selected ?? [];
   const total = answer.stages.reduce((sum, s) => sum + s.latency_ms, 0);
+  const tokens = answer.stages.reduce((sum, s) => sum + s.tokens_in + s.tokens_out, 0);
+  const isTable = !answer.error && !(answer.rows.length === 1 && answer.columns.length === 1);
   return (
     <>
-      {answer.error ? (
+      <AnswerFlow answer={answer} />
+      {answer.error && (
         <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
           {answer.error}
         </p>
-      ) : (
-        <ResultsTable columns={answer.columns} rows={answer.rows} truncated={answer.truncated} />
       )}
+      {isTable && <ResultsTable columns={answer.columns} rows={answer.rows} truncated={answer.truncated} />}
       <Disclosure label="SQL" meta={answer.details.validation === "ok" ? "checked before running" : undefined}>
         <SqlView sql={answer.sql} />
       </Disclosure>
-      <Disclosure label="How it was answered" meta={`${formatMs(total)} · ${selected.length} table${selected.length === 1 ? "" : "s"}`}>
-        <div className="flex flex-col gap-4">
-          <ul className="flex flex-wrap gap-1.5">
-            {selected.map((table) => (
-              <li key={table} className="rounded-md bg-stone-100 px-2 py-0.5 font-mono text-xs text-stone-700 dark:bg-stone-800 dark:text-stone-300">
-                {table}
-              </li>
-            ))}
-          </ul>
-          <StageTimeline stages={answer.stages} />
-        </div>
+      <Disclosure label="Timing" meta={`${formatMs(total)} · ${tokens} tokens`}>
+        <StageTimeline stages={answer.stages} />
       </Disclosure>
     </>
   );
