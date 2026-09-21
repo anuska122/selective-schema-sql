@@ -246,6 +246,14 @@ in the prompt.
   that the model is told to treat as data. Whatever the model returns still has
   to pass `db.execute`.
 
+- **API and web app:** errors returned to clients are generic; details go to
+  the server log only. The web routes cap request bodies at 16 KB and send
+  `nosniff`, `frame-ancestors 'none'` and `no-referrer` headers.
+- **Accepted risks:** the API has no authentication or rate limit, so run it
+  locally only (anyone who reaches it can spend the Groq quota). ChromaDB has
+  open advisories that affect its server mode only; it runs embedded here, so
+  never start `chroma run`.
+
 `tests/test_security.py` proves each database control by connecting directly as
 the role; `tests/test_db.py` covers the query path.
 
