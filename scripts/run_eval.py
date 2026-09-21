@@ -15,6 +15,7 @@ STRATEGIES = {
     "selective": build_selective,
     "selective_pooled": lambda: build_selective(layout="pooled"),
     "selective_validated": lambda: build_selective(validate=True),
+    "selective_recall": lambda: build_selective(validate=True, recall_first=True),
 }
 
 

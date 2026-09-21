@@ -101,3 +101,12 @@ def test_auto_layout_filters_only_when_a_database_is_given(db_id, expected):
     strategy, _, retriever = build(layout="auto")
     strategy.answer(Question(2, db_id, "which accounts", "", "SELECT 1", "simple"))
     assert retriever.calls[0][2] == expected
+
+
+def test_keep_top_adds_retriever_tables_and_join_tables():
+    client = FakeClient('{"tables": ["account"]}', "SELECT 1")
+    strategy = Selective(client, FakeRetriever(), Selector(client, GRAPH), RENDERS, keep_top=2)
+    prediction = strategy.answer(QUESTION)
+    assert prediction.details["selected"] == ["account", "client", "disp"]
+    assert strategy.config["keep_top"] == 2
+    assert len(strategy.config["selector_prompt_sha256"]) == 64

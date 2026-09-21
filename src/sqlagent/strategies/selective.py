@@ -9,12 +9,13 @@ from sqlagent.index.build import INDEX_DIR, TABLE_MAP
 from sqlagent.index.fk_graph import FKGraph
 from sqlagent.retrieval.loading import load_retriever
 from sqlagent.retrieval.retriever import Retriever, TableCandidate
-from sqlagent.selection.selector import Selector
+from sqlagent.selection.selector import RECALL_FIRST_PROMPT, SYSTEM_PROMPT, Selector, expand_for_joins
 from sqlagent.validation.validator import Validation, Validator
 
 CANDIDATES = 30
 FALLBACK_TABLES = 5
 WIDEN_TABLES = 12
+KEEP_TOP = 4
 
 
 def render_per_table(
@@ -46,6 +47,7 @@ class Selective:
         candidates: int = CANDIDATES,
         fallback_tables: int = FALLBACK_TABLES,
         widen_tables: int = WIDEN_TABLES,
+        keep_top: int = 0,
         model: str = llm.GENERATOR_MODEL,
         reasoning_effort: str = llm.REASONING_EFFORT,
     ):
@@ -58,6 +60,7 @@ class Selective:
         self.candidates = candidates
         self.fallback_tables = fallback_tables
         self.widen_tables = widen_tables
+        self.keep_top = keep_top
         self.model = model
         self.reasoning_effort = reasoning_effort
         self.config = {
@@ -70,6 +73,8 @@ class Selective:
             "fallback_tables": fallback_tables,
             "validation": validator is not None,
             "widen_tables": widen_tables if validator else None,
+            "keep_top": keep_top,
+            "selector_prompt_sha256": schema.sha256(selector.system_prompt),
             "schema_format": "ddl_with_keys",
             "evidence": False,
             "prompt_sha256": schema.sha256(generation.SYSTEM_PROMPT + generation.USER_TEMPLATE),
@@ -93,6 +98,11 @@ class Selective:
             tables = []
         if not tables:
             tables = [c.table for c in candidates[: self.fallback_tables] if c.table in self.table_renders]
+        if self.keep_top:
+            kept = [c.table for c in candidates[: self.keep_top] if c.table in self.table_renders]
+            tables = sorted(set(tables) | set(kept))
+            tables, _ = expand_for_joins(tables, self.selector.graph)
+            tables = [t for t in tables if t in self.table_renders]
         return tables
 
     def _render(self, tables: list[str]) -> str:
@@ -163,6 +173,7 @@ def build_selective(
     *,
     layout: str = "standard",
     validate: bool = False,
+    recall_first: bool = False,
     index_dir: Path = INDEX_DIR,
     table_map: Path = TABLE_MAP,
 ) -> Selective:
@@ -172,10 +183,11 @@ def build_selective(
     strategy = Selective(
         client,
         load_retriever(index_dir=index_dir, table_map=table_map),
-        Selector(client, graph),
+        Selector(client, graph, system_prompt=RECALL_FIRST_PROMPT if recall_first else SYSTEM_PROMPT),
         render_per_table(table_names),
         Validator(catalog_from_renders(table_names)) if validate else None,
         layout=layout,
+        keep_top=KEEP_TOP if recall_first else 0,
     )
-    strategy.name = strategy.validated_name
+    strategy.name = "selective_recall" if recall_first else strategy.validated_name
     return strategy
