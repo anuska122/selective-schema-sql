@@ -104,7 +104,11 @@ class Selective:
     def answer(self, question: Question) -> Prediction:
         start = time.perf_counter()
         stages: list[StageTrace] = []
-        db_id = question.db_id if self.layout == "standard" else None
+        db_id = (
+            question.db_id
+            if self.layout == "standard" or (self.layout == "auto" and question.db_id)
+            else None
+        )
         candidates = self.retriever.retrieve(question.question, limit=self.candidates, db_id=db_id)
         stages.append(StageTrace("retrieve", round((time.perf_counter() - start) * 1000, 2)))
 

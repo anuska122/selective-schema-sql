@@ -49,6 +49,7 @@ Design rules:
 | M4 | Selector | **Done**: retrieve → select → generate; clean measurement pending |
 | M5 | Validator + escalation ladder | **Done**: parse, name checks, EXPLAIN, repair then widen |
 | M6 | Observability, then FastAPI | **Done**: per-stage reporting in run summaries, ask endpoint |
+| M7 | Frontend | **Done**: Next.js question page |
 
 Work is tracked in GitHub issues, one per task, grouped by milestone.
 Architectural decisions are issues labelled `decision`.
@@ -203,6 +204,22 @@ latency, which rung was reached). The offline index must be built first, and
 audited query path as everything else. There is no authentication: run it
 locally, not on a public address.
 
+## Web app (M7)
+
+A Next.js + TypeScript page in `web/`: ask a question, optionally pick a
+database (otherwise all tables are searched), and see the SQL, the result
+rows, the tables used and the time and tokens per stage.
+
+```sh
+uv run uvicorn sqlagent.api.app:app --port 8000
+cd web && npm install && npm run dev
+```
+
+The browser only talks to the Next.js server; its `/api/*` routes forward to
+the FastAPI backend at `BACKEND_URL` (default `http://127.0.0.1:8000`), so the
+backend address never reaches the client. Checks: `npm run lint`,
+`npm run typecheck`, `npm test`, `npm run build`.
+
 ## Security model
 
 All generated SQL is treated as untrusted. The controls sit in the database, not
@@ -239,6 +256,7 @@ docker-compose.yml         Postgres 16 for local development
 sql/00_roles.sql           read-only role and privileges
 scripts/                   setup, sample, gold cache, run_eval, compare
 src/sqlagent/              config, db, generation, eval/, index/, retrieval/, selection/, validation/, strategies/, api/
+web/                       Next.js + TypeScript frontend
 tests/                     security and unit tests; fixtures/ for CI
 eval/                      committed eval artifacts: table → database map, frozen sample
 data/  runs/               gitignored: dataset, offline index, run outputs

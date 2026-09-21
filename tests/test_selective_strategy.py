@@ -1,3 +1,5 @@
+import pytest
+
 from sqlagent.eval.dataset import Question
 from sqlagent.eval.types import StageTrace
 from sqlagent.index.fk_graph import FKGraph, ForeignKey
@@ -92,3 +94,10 @@ def test_selector_failure_falls_back_to_top_candidates():
     assert [s.name for s in prediction.stages] == ["retrieve", "select_failed", "generate"]
     generate_prompt = client.calls[1][0][1]["content"]
     assert "CREATE TABLE account" in generate_prompt
+
+
+@pytest.mark.parametrize(("db_id", "expected"), [("financial", "financial"), ("", None)])
+def test_auto_layout_filters_only_when_a_database_is_given(db_id, expected):
+    strategy, _, retriever = build(layout="auto")
+    strategy.answer(Question(2, db_id, "which accounts", "", "SELECT 1", "simple"))
+    assert retriever.calls[0][2] == expected

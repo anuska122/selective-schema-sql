@@ -92,3 +92,10 @@ def test_ask_endpoint_reports_backend_failure(client, monkeypatch):
     response = client.post("/ask", json={"question": "q"})
     assert response.status_code == 502
     assert "model down" in response.json()["detail"]
+
+
+def test_databases_lists_every_database_with_tables(client):
+    databases = client.get("/databases").json()
+    assert len(databases) == 11
+    financial = next(d for d in databases if d["db_id"] == "financial")
+    assert "account" in financial["tables"]
