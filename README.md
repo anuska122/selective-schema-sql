@@ -53,6 +53,31 @@ Design rules:
 Work is tracked in GitHub issues, one per task, grouped by milestone.
 Architectural decisions are issues labelled `decision`.
 
+## Results
+
+BIRD Mini-Dev (PostgreSQL), frozen 50-question sample, no evidence hints,
+`gpt-oss-120b` generator, `gpt-oss-20b` selector, Groq free tier.
+
+| Strategy | EX | Input tokens / question | Cost / question | p50 latency |
+|---|---|---|---|---|
+| Full schema (baseline) | 50% | 2,219 | $0.00052 | 1.3s |
+| Selective | 46% | 1,425 | $0.00040 | 1.8s |
+| Selective + validation | **50%** | **1,455** | **$0.00039** | 1.8s |
+
+- Selective with validation matches the baseline with 34% fewer input tokens.
+  Against the baseline it fixes 2 questions and breaks 2.
+- Two identical baseline runs differed by 2 questions, so differences of 2 or
+  fewer are within noise.
+- The retriever finds 99.3% of needed tables in its top 30 (all 498 questions,
+  all 75 tables visible). The selector keeps every needed table for 42 of 50
+  questions, which makes it the main source of lost accuracy.
+- The repair step ran once in 50 questions and did not change the answer.
+- With all 75 tables visible the full-schema prompt is 8.2K-21.8K tokens, over
+  the free tier's 8K request limit, so only the selective pipeline can run there.
+
+Run summaries are in `runs/*/summary.json`. Cost is at Groq list prices; the
+actual spend was $0.
+
 ## Local setup
 
 **Requirements:** Docker, [uv](https://docs.astral.sh/uv/), ~4 GB free disk.
