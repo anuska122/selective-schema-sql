@@ -128,24 +128,28 @@ describe("Messages", () => {
     vi.useRealTimers();
   });
 
-  it("shows the answer with SQL and trace behind disclosures", async () => {
+  it("shows the answer with SQL and timing behind disclosures", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     const { container } = render(<AssistantMessage message={done()} />);
-    expect(screen.getByText("Blue")).toBeInTheDocument();
+    await act(async () => {
+      vi.advanceTimersByTime(3000);
+    });
+    expect(screen.getAllByText("Blue").length).toBeGreaterThan(0);
     const sqlToggle = screen.getByRole("button", { name: /SQL/ });
     expect(sqlToggle).toHaveAttribute("aria-expanded", "false");
     await userEvent.click(sqlToggle);
     expect(sqlToggle).toHaveAttribute("aria-expanded", "true");
     expect(container.querySelector("code")?.textContent).toBe("SELECT colour\nFROM colour");
     expect(screen.getByText("checked before running")).toBeInTheDocument();
-    expect(screen.getByText("1.8s · 2 tables")).toBeInTheDocument();
-    expect(screen.getByText("superhero")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Timing/ })).toHaveTextContent("1.8s · 1000 tokens");
+    vi.useRealTimers();
   });
 
   it("shows execution errors and request errors", () => {
     render(<AssistantMessage message={done({ ...ANSWER, error: "db_error: boom" })} />);
     expect(screen.getByRole("alert")).toHaveTextContent("db_error: boom");
     render(<AssistantMessage message={{ id: "e", role: "assistant", status: "error", error: "out of quota" }} />);
-    expect(screen.getAllByRole("alert")[1]).toHaveTextContent("out of quota");
+    expect(screen.getAllByRole("alert").at(-1)).toHaveTextContent("out of quota");
   });
 });
 
@@ -191,5 +195,72 @@ describe("StageTimeline", () => {
     render(<StageTimeline stages={ANSWER.stages} />);
     expect(screen.getByText("1.8s · 1000 tokens")).toBeInTheDocument();
     expect(screen.getByText("500ms")).toBeInTheDocument();
+  });
+});
+
+
+describe("AnswerFlow", () => {
+  const FLOW: AskResponse = {
+    ...ANSWER,
+    rows: [["234"]],
+    columns: ["count"],
+    details: {
+      candidates: ["superhero", "colour", "hero_power", "race"],
+      selected: ["colour", "superhero"],
+      joins: [
+        { from: "superhero", from_columns: ["hair_colour_id"], to: "colour", to_columns: ["id"], inferred: false },
+        { from: "superhero", from_columns: ["eye_colour_id"], to: "colour", to_columns: ["id"], inferred: false },
+      ],
+      columns: { superhero: ["eye_colour_id"], colour: ["colour", "id"] },
+    },
+  };
+
+  async function advance(ms: number) {
+    await act(async () => {
+      vi.advanceTimersByTime(ms);
+    });
+  }
+
+  it("plays search, choose, join and answer in order, then replays", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { AnswerFlow, PHASE_MS } = await import("./chat/AnswerFlow");
+    const { container } = render(<AnswerFlow answer={FLOW} />);
+
+    const searched = screen.getByRole("list", { name: "Tables searched" });
+    expect(searched.querySelectorAll("li")).toHaveLength(4);
+    expect(screen.queryByText("Joined the tables it needs")).not.toBeInTheDocument();
+
+    await advance(PHASE_MS[1]);
+    expect(searched.querySelector('[data-chosen="false"]')).toHaveClass("line-through");
+    expect(searched.querySelector('[data-chosen="true"]')).toHaveClass("bg-clay-600");
+
+    await advance(PHASE_MS[2] - PHASE_MS[1]);
+    expect(screen.getByText("Joined the tables it needs")).toBeInTheDocument();
+    expect(screen.getByText("eye_colour_id")).toBeInTheDocument();
+
+    await advance(PHASE_MS[3] - PHASE_MS[2]);
+    const joins = screen.getByRole("list", { name: "Joins" });
+    expect(joins).toHaveTextContent("superhero.eye_colour_id = colour.id");
+    expect(joins).not.toHaveTextContent("hair_colour_id");
+    expect(container.querySelector('[data-joined="true"]')).toHaveTextContent("id");
+    expect(screen.getByText("eye_colour_id").closest("li")).toHaveAttribute("data-joined", "true");
+
+    await advance(PHASE_MS[4] - PHASE_MS[3]);
+    expect(screen.getByText("234")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /Replay/ }));
+    expect(screen.queryByText("234")).not.toBeInTheDocument();
+    vi.useRealTimers();
+  });
+
+  it("shows everything at once when reduced motion is preferred", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    window.matchMedia = vi.fn().mockReturnValue({ matches: true }) as unknown as typeof window.matchMedia;
+    const { AnswerFlow } = await import("./chat/AnswerFlow");
+    render(<AnswerFlow answer={FLOW} />);
+    await advance(1);
+    expect(screen.getByText("234")).toBeInTheDocument();
+    window.matchMedia = undefined as unknown as typeof window.matchMedia;
+    vi.useRealTimers();
   });
 });
