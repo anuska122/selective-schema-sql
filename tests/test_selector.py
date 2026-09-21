@@ -71,3 +71,24 @@ def test_selector_uses_cheap_model_and_expands_joins():
     assert kw["json_mode"] is True
     assert kw["reasoning_effort"] == "low"
     assert kw["max_tokens"] == 1024
+
+
+def test_render_candidates_adds_descriptions_when_given():
+    text = render_candidates(CANDIDATES, {"account": "bank accounts", "loan": ""})
+    assert (
+        text.splitlines()[0]
+        == "- account | bank accounts | columns: account_id | matching values: frequency=monthly"
+    )
+    assert text.splitlines()[2] == "- loan"
+
+
+def test_selector_uses_the_configured_prompt_and_descriptions():
+    from sqlagent.selection.selector import RECALL_FIRST_PROMPT
+
+    client = FakeClient('{"tables": ["account"]}')
+    Selector(
+        client, GRAPH, descriptions={"account": "bank accounts"}, system_prompt=RECALL_FIRST_PROMPT
+    ).select("q", CANDIDATES)
+    messages, _ = client.calls[0]
+    assert messages[0]["content"] == RECALL_FIRST_PROMPT
+    assert "bank accounts" in messages[1]["content"]
