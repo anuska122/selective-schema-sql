@@ -27,7 +27,7 @@ export function ChatSidebar({ conversations, activeId, databases, dbId, onNew, o
           onClick={onNew}
           className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-200/70 dark:text-stone-200 dark:hover:bg-stone-800"
         >
-          <span className="grid size-5 place-items-center rounded-full bg-clay-600 text-xs text-white" aria-hidden>
+          <span className="grid size-5 place-items-center rounded-full bg-accent-600 text-xs text-white" aria-hidden>
             +
           </span>
           New question
@@ -42,7 +42,7 @@ export function ChatSidebar({ conversations, activeId, databases, dbId, onNew, o
           id="sidebar-database"
           value={dbId}
           onChange={(event) => onDbChange(event.target.value)}
-          className="mt-1.5 w-full rounded-lg border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-700 focus:outline-none focus:ring-2 focus:ring-clay-500/30 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-200"
+          className="mt-1.5 w-full rounded-lg border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-700 focus:outline-none focus:ring-2 focus:ring-accent-500/30 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-200"
         >
           <option value="">All tables</option>
           {databases.map((db) => (

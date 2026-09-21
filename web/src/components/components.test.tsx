@@ -232,7 +232,7 @@ describe("AnswerFlow", () => {
 
     await advance(PHASE_MS[1]);
     expect(searched.querySelector('[data-chosen="false"]')).toHaveClass("line-through");
-    expect(searched.querySelector('[data-chosen="true"]')).toHaveClass("bg-clay-600");
+    expect(searched.querySelector('[data-chosen="true"]')).toHaveClass("bg-accent-600");
 
     await advance(PHASE_MS[2] - PHASE_MS[1]);
     expect(screen.getByText("Joined the tables it needs")).toBeInTheDocument();

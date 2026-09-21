@@ -99,7 +99,7 @@ export function AnswerFlow({ answer }: { answer: AskResponse }) {
                 data-chosen={chosen}
                 className={`animate-rise rounded-md px-2 py-0.5 font-mono text-xs transition-all duration-500 ${
                   decided && chosen
-                    ? "bg-clay-600 text-white shadow-sm shadow-clay-600/30"
+                    ? "bg-accent-600 text-white shadow-sm shadow-accent-600/30"
                     : decided
                       ? "bg-stone-100 text-stone-400 line-through opacity-50 dark:bg-stone-800 dark:text-stone-500"
                       : "bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-300"
@@ -125,9 +125,9 @@ export function AnswerFlow({ answer }: { answer: AskResponse }) {
                   else cards.current.delete(table);
                 }}
                 style={{ animationDelay: `${i * 90}ms` }}
-                className="animate-rise min-w-36 rounded-xl border border-clay-500/40 bg-white shadow-sm dark:bg-stone-900"
+                className="animate-rise min-w-36 rounded-xl border border-accent-500/40 bg-white shadow-sm dark:bg-stone-900"
               >
-                <div className="rounded-t-xl bg-clay-600 px-3 py-1.5 font-mono text-xs font-semibold text-white">{table}</div>
+                <div className="rounded-t-xl bg-accent-600 px-3 py-1.5 font-mono text-xs font-semibold text-white">{table}</div>
                 <ul className="px-3 py-2">
                   {(columns[table] ?? []).map((column) => {
                     const joined = phase >= 3 && joinColumns.has(`${table}.${column}`);
@@ -136,10 +136,10 @@ export function AnswerFlow({ answer }: { answer: AskResponse }) {
                         key={column}
                         data-joined={joined}
                         className={`flex items-center gap-1.5 font-mono text-xs transition-colors duration-500 ${
-                          joined ? "font-semibold text-clay-600 dark:text-clay-500" : "text-stone-600 dark:text-stone-300"
+                          joined ? "font-semibold text-accent-600 dark:text-accent-500" : "text-stone-600 dark:text-stone-300"
                         }`}
                       >
-                        <span aria-hidden className={`size-1.5 rounded-full ${joined ? "bg-clay-500" : "bg-stone-300 dark:bg-stone-600"}`} />
+                        <span aria-hidden className={`size-1.5 rounded-full ${joined ? "bg-accent-500" : "bg-stone-300 dark:bg-stone-600"}`} />
                         {column}
                       </li>
                     );
@@ -153,7 +153,7 @@ export function AnswerFlow({ answer }: { answer: AskResponse }) {
             <ul aria-label="Joins" className="mt-3 flex flex-col items-center gap-1">
               {joins.map((join) => (
                 <li key={joinLabel(join)} className="animate-rise font-mono text-[11px] text-stone-500 dark:text-stone-400">
-                  <span className="text-clay-600 dark:text-clay-500">⟷</span> {joinLabel(join)}
+                  <span className="text-accent-600 dark:text-accent-500">⟷</span> {joinLabel(join)}
                   {join.inferred && <span className="ml-1 text-stone-400">(inferred key)</span>}
                 </li>
               ))}
@@ -168,7 +168,7 @@ export function AnswerFlow({ answer }: { answer: AskResponse }) {
                     y1={line.y1}
                     x2={line.x2}
                     y2={line.y2}
-                    className="stroke-clay-500 animate-[draw_0.7s_ease-out_both]"
+                    className="stroke-accent-500 animate-[draw_0.7s_ease-out_both]"
                     strokeWidth={2}
                     strokeDasharray={400}
                   />
@@ -221,6 +221,6 @@ function Step({ index, title, note, visible, children }: { index: number; title:
 function Connector({ visible }: { visible: boolean }) {
   if (!visible) return null;
   return (
-    <div aria-hidden className="ml-2.5 mt-3 h-6 w-px origin-top animate-[grow-y_0.4s_ease-out_both] bg-gradient-to-b from-clay-500 to-transparent" />
+    <div aria-hidden className="ml-2.5 mt-3 h-6 w-px origin-top animate-[grow-y_0.4s_ease-out_both] bg-gradient-to-b from-accent-500 to-transparent" />
   );
 }

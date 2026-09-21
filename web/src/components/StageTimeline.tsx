@@ -28,7 +28,7 @@ export function StageTimeline({ stages }: { stages: Stage[] }) {
           </div>
           <div className="h-1.5 overflow-hidden rounded-full bg-stone-100 dark:bg-stone-800">
             <div
-              className={`h-full origin-left animate-[grow_0.8s_cubic-bezier(0.22,1,0.36,1)_both] rounded-full ${stage.llm_calls > 0 ? "bg-clay-500" : "bg-stone-400"}`}
+              className={`h-full origin-left animate-[grow_0.8s_cubic-bezier(0.22,1,0.36,1)_both] rounded-full ${stage.llm_calls > 0 ? "bg-accent-500" : "bg-stone-400"}`}
               style={{ width: `${total ? Math.max(2, (stage.latency_ms / total) * 100) : 0}%` }}
             />
           </div>
