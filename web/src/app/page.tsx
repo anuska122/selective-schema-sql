@@ -40,6 +40,11 @@ export default function Home() {
         </p>
       </header>
       <AskForm databases={databases} busy={busy} onAsk={handleAsk} />
+      {busy && (
+        <p role="status" aria-live="polite" className="text-sm text-zinc-600">
+          Finding the relevant tables, writing the SQL and running it…
+        </p>
+      )}
       {error && (
         <p role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-800">
           {error}

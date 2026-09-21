@@ -1,4 +1,5 @@
 import type { AskResponse } from "@/lib/types";
+import { CopyButton } from "./CopyButton";
 import { ResultsTable } from "./ResultsTable";
 import { StageTimeline } from "./StageTimeline";
 
@@ -8,9 +9,16 @@ export function AnswerView({ answer }: { answer: AskResponse }) {
     <section className="flex flex-col gap-6">
       <div>
         <h2 className="mb-2 text-sm font-medium text-zinc-700">SQL</h2>
-        <pre className="overflow-x-auto rounded-md bg-zinc-900 p-4 text-sm text-zinc-100">
-          {answer.sql ?? "No SQL was produced."}
-        </pre>
+        <div className="relative">
+          <pre className="overflow-x-auto rounded-md bg-zinc-900 p-4 pr-16 text-sm text-zinc-100">
+            {answer.sql ?? "No SQL was produced."}
+          </pre>
+          {answer.sql && (
+            <div className="absolute right-2 top-2">
+              <CopyButton text={answer.sql} />
+            </div>
+          )}
+        </div>
       </div>
 
       {answer.error ? (
