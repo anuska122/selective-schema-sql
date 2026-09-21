@@ -35,7 +35,7 @@ describe("AskForm", () => {
 
   it("disables the button while busy or empty", () => {
     const { rerender } = render(<AskForm databases={[]} busy={false} onAsk={vi.fn()} />);
-    expect(screen.getByRole("button")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Ask" })).toBeDisabled();
     rerender(<AskForm databases={[]} busy onAsk={vi.fn()} />);
     expect(screen.getByRole("button", { name: "Working…" })).toBeDisabled();
   });
@@ -79,5 +79,28 @@ describe("AnswerView", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("db_error: boom");
     expect(screen.getByText("No SQL was produced.")).toBeInTheDocument();
     expect(screen.queryByText("Blue")).not.toBeInTheDocument();
+  });
+});
+
+describe("polish", () => {
+  it("fills the question from an example", async () => {
+    const { EXAMPLES } = await import("./AskForm");
+    render(<AskForm databases={[]} busy={false} onAsk={vi.fn()} />);
+    await userEvent.click(screen.getByRole("button", { name: EXAMPLES[0] }));
+    expect(screen.getByLabelText("Question")).toHaveValue(EXAMPLES[0]);
+  });
+
+  it("copies the SQL", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue();
+    render(<AnswerView answer={ANSWER} />);
+    await user.click(screen.getByRole("button", { name: "Copy" }));
+    expect(writeText).toHaveBeenCalledWith("SELECT colour FROM colour");
+    expect(await screen.findByRole("button", { name: "Copied" })).toBeInTheDocument();
+  });
+
+  it("has no copy button without SQL", () => {
+    render(<AnswerView answer={{ ...ANSWER, sql: null }} />);
+    expect(screen.queryByRole("button", { name: "Copy" })).not.toBeInTheDocument();
   });
 });

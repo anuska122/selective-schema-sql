@@ -43,13 +43,13 @@ Design rules:
 
 | Milestone | Scope | State |
 |---|---|---|
-| M1 | Eval harness + full-schema baseline | **Done bar the variance re-run**: baseline scores 50% EX without evidence hints |
+| M1 | Eval harness + full-schema baseline | **Done**: baseline scores 50% EX without evidence hints; variance re-run pending |
 | M2 | Offline indexer | **Done**: FK graph with inferred keys, value index, descriptions, embeddings |
 | M3 | Retriever (go/no-go) | **Passed**: 99.3% of needed tables in the top 30 |
-| M4 | Selector | **Done**: retrieve → select → generate; clean measurement pending |
+| M4 | Selector | **Done**: with validation it matches the baseline at 34% fewer tokens (see Results) |
 | M5 | Validator + escalation ladder | **Done**: parse, name checks, EXPLAIN, repair then widen |
 | M6 | Observability, then FastAPI | **Done**: per-stage reporting in run summaries, ask endpoint |
-| M7 | Frontend | **Done**: Next.js question page |
+| M7 | Frontend | **Done**: Next.js question page with example questions |
 
 Work is tracked in GitHub issues, one per task, grouped by milestone.
 Architectural decisions are issues labelled `decision`.

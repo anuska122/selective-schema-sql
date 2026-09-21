@@ -3,6 +3,12 @@
 import { useState } from "react";
 import type { Database } from "@/lib/types";
 
+export const EXAMPLES = [
+  "How many superheroes have blue eyes?",
+  "What is the average AST level of patients?",
+  "How many female clients are there?",
+];
+
 type Props = {
   databases: Database[];
   busy: boolean;
@@ -24,6 +30,18 @@ export function AskForm({ databases, busy, onAsk }: Props) {
       <label htmlFor="question" className="text-sm font-medium text-zinc-700">
         Question
       </label>
+      <div className="flex flex-wrap gap-2">
+        {EXAMPLES.map((example) => (
+          <button
+            key={example}
+            type="button"
+            onClick={() => setQuestion(example)}
+            className="rounded-full border border-zinc-300 px-3 py-1 text-xs text-zinc-700 hover:bg-zinc-100"
+          >
+            {example}
+          </button>
+        ))}
+      </div>
       <textarea
         id="question"
         value={question}
