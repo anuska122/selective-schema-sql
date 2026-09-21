@@ -49,7 +49,7 @@ Design rules:
 | M4 | Selector | **Done**: with validation it matches the baseline at 34% fewer tokens (see Results) |
 | M5 | Validator + escalation ladder | **Done**: parse, name checks, EXPLAIN, repair then widen |
 | M6 | Observability, then FastAPI | **Done**: per-stage reporting in run summaries, ask endpoint |
-| M7 | Frontend | **Done**: Next.js question page with example questions |
+| M7 | Frontend | **Done**: chat-style Next.js app with history, light and dark themes |
 
 Work is tracked in GitHub issues, one per task, grouped by milestone.
 Architectural decisions are issues labelled `decision`.
@@ -206,9 +206,12 @@ locally, not on a public address.
 
 ## Web app (M7)
 
-A Next.js + TypeScript page in `web/`: ask a question, optionally pick a
-database (otherwise all tables are searched), and see the SQL, the result
-rows, the tables used and the time and tokens per stage.
+A chat-style Next.js + TypeScript app in `web/`. Ask a question and the answer
+appears as a reply: a single value as a big number, otherwise a table, with the
+SQL and a per-stage breakdown in expandable sections. Past questions are kept
+in the sidebar (stored in your browser), and the database can be narrowed from
+the sidebar. Enter sends, Shift+Enter adds a line. Light and dark themes follow
+the system setting.
 
 ```sh
 uv run uvicorn sqlagent.api.app:app --port 8000
