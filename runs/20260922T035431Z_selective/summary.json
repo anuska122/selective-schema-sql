@@ -1,0 +1,80 @@
+{
+  "run": "20260922T035431Z_selective",
+  "strategy": "selective",
+  "git_sha": "f7ac48dad4877ab013f3e002a2743e040c7feadb",
+  "overall": {
+    "n": 50,
+    "correct": 23,
+    "ex": 46.0
+  },
+  "by_difficulty": {
+    "challenging": {
+      "n": 10,
+      "correct": 2,
+      "ex": 20.0
+    },
+    "moderate": {
+      "n": 25,
+      "correct": 11,
+      "ex": 44.0
+    },
+    "simple": {
+      "n": 15,
+      "correct": 10,
+      "ex": 66.67
+    }
+  },
+  "errors": {
+    "db_error": 2
+  },
+  "totals": {
+    "llm_calls": 100,
+    "tokens_in": 101070,
+    "tokens_out": 17258,
+    "cached_tokens": 2304,
+    "cost_usd": 0.021706
+  },
+  "per_question": {
+    "llm_calls": 2.0,
+    "tokens_in": 2021.4,
+    "tokens_out": 345.16,
+    "cached_tokens": 46.08,
+    "cost_usd": 0.000434
+  },
+  "latency_ms": {
+    "p50": 1721.55,
+    "p95": 2434.74
+  },
+  "stages": {
+    "generate": {
+      "questions": 50,
+      "llm_calls": 50,
+      "tokens_in": 64024,
+      "tokens_out": 14398,
+      "cached_tokens": 2304,
+      "p50_latency_ms": 1130.91
+    },
+    "retrieve": {
+      "questions": 50,
+      "llm_calls": 0,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "cached_tokens": 0,
+      "p50_latency_ms": 39.38
+    },
+    "select": {
+      "questions": 50,
+      "llm_calls": 50,
+      "tokens_in": 37046,
+      "tokens_out": 2860,
+      "cached_tokens": 0,
+      "p50_latency_ms": 521.89
+    }
+  },
+  "ladder": {
+    "generate": {
+      "questions": 50,
+      "correct": 23
+    }
+  }
+}

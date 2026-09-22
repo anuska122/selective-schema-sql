@@ -110,3 +110,28 @@ def test_keep_top_adds_retriever_tables_and_join_tables():
     assert prediction.details["selected"] == ["account", "client", "disp"]
     assert strategy.config["keep_top"] == 2
     assert len(strategy.config["selector_prompt_sha256"]) == 64
+
+
+@pytest.mark.parametrize(
+    ("layout", "validate", "recall_first", "expected"),
+    [
+        ("standard", False, False, "selective"),
+        ("standard", True, False, "selective_validated"),
+        ("pooled", False, False, "selective_pooled"),
+        ("pooled", True, False, "selective_validated_pooled"),
+        ("standard", True, True, "selective_recall"),
+    ],
+)
+def test_build_selective_names_each_configuration_distinctly(
+    monkeypatch, layout, validate, recall_first, expected
+):
+    from sqlagent.strategies import selective as module
+
+    monkeypatch.setattr(module.FKGraph, "load", lambda path: GRAPH)
+    monkeypatch.setattr(module, "load_retriever", lambda **kw: FakeRetriever())
+    monkeypatch.setattr(module, "render_per_table", lambda names: RENDERS)
+    monkeypatch.setattr(module, "catalog_from_renders", lambda names: {t: {"id"} for t in RENDERS})
+    strategy = module.build_selective(
+        FakeClient("", ""), layout=layout, validate=validate, recall_first=recall_first
+    )
+    assert strategy.name == expected
