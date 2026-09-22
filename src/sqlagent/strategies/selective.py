@@ -195,5 +195,6 @@ def build_selective(
         layout=layout,
         keep_top=KEEP_TOP if recall_first else 0,
     )
-    strategy.name = "selective_recall" if recall_first else strategy.validated_name
+    name = "selective_recall" if recall_first else strategy.validated_name
+    strategy.name = f"{name}_pooled" if layout == "pooled" else name
     return strategy
