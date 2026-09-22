@@ -87,17 +87,9 @@ def evaluate_question(
     return row
 
 
-def run_eval(
-    strategy: Strategy,
-    questions: list[Question],
-    gold: dict[int, GoldResult],
-    *,
-    prices: dict[str, dict[str, float]] | None = None,
-    sample_path: Path | None = None,
-    runs_dir: Path = RUNS_DIR,
-    execute: Callable[..., db.QueryResult] = db.execute,
+def _new_run(
+    strategy: Strategy, questions: list[Question], prices, sample_path: Path | None, runs_dir: Path
 ) -> Path:
-    prices = prices or {}
     started = datetime.now(UTC)
     run_dir = runs_dir / f"{started.strftime('%Y%m%dT%H%M%SZ')}_{strategy.name}"
     run_dir.mkdir(parents=True, exist_ok=False)
@@ -124,10 +116,49 @@ def run_eval(
     artifacts = getattr(strategy, "artifacts", None)
     if artifacts:
         (run_dir / "artifacts.json").write_text(json.dumps(artifacts, indent=1, sort_keys=True) + "\n")
+    return run_dir
+
+
+def _check_resumable(run_dir: Path, strategy: Strategy, questions: list[Question]) -> set[int]:
+    config = json.loads((run_dir / "config.json").read_text())
+    mismatches = [
+        name
+        for name, same in (
+            ("strategy", config["strategy"] == strategy.name),
+            ("strategy settings", config["strategy_config"] == strategy.config),
+            ("questions", config["question_ids"] == [q.question_id for q in questions]),
+        )
+        if not same
+    ]
+    if mismatches:
+        raise ValueError(f"cannot resume {run_dir.name}: {', '.join(mismatches)} differ from this run")
+    results = run_dir / "results.jsonl"
+    return (
+        {json.loads(line)["qid"] for line in results.read_text().splitlines()} if results.exists() else set()
+    )
+
+
+def run_eval(
+    strategy: Strategy,
+    questions: list[Question],
+    gold: dict[int, GoldResult],
+    *,
+    prices: dict[str, dict[str, float]] | None = None,
+    sample_path: Path | None = None,
+    runs_dir: Path = RUNS_DIR,
+    execute: Callable[..., db.QueryResult] = db.execute,
+    resume: Path | None = None,
+) -> Path:
+    prices = prices or {}
+    if resume:
+        run_dir, done = resume, _check_resumable(resume, strategy, questions)
+    else:
+        run_dir, done = _new_run(strategy, questions, prices, sample_path, runs_dir), set()
     aborted = None
-    answered = 0
-    with (run_dir / "results.jsonl").open("w") as out:
+    with (run_dir / "results.jsonl").open("a") as out:
         for q in questions:
+            if q.question_id in done:
+                continue
             try:
                 row = evaluate_question(strategy, q, gold[q.question_id], prices, execute)
             except AbortRun as e:
@@ -135,6 +166,6 @@ def run_eval(
                 break
             out.write(json.dumps(row, default=str) + "\n")
             out.flush()
-            answered += 1
-    summarize(run_dir, incomplete=aborted, answered=answered, planned=len(questions))
+            done.add(q.question_id)
+    summarize(run_dir, incomplete=aborted, answered=len(done), planned=len(questions))
     return run_dir

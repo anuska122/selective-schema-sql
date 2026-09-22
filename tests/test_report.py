@@ -134,3 +134,35 @@ def test_summary_omits_the_ladder_when_no_strategy_reports_rungs(tmp_path):
     summary = summarize(write_run(tmp_path / "run", [row(1, True)]))
     assert "ladder" not in summary
     assert summary["stages"] == {}
+
+
+def test_results_table_from_run_summaries(tmp_path):
+    from sqlagent.eval.report import results_table
+
+    def run(name, strategy, layout, ex, tokens, cost, p50, incomplete=None):
+        d = tmp_path / name
+        d.mkdir()
+        (d / "config.json").write_text(json.dumps({"strategy_config": {"layout": layout}}))
+        summary = {
+            "strategy": strategy,
+            "overall": {"ex": ex},
+            "per_question": {"tokens_in": tokens, "cost_usd": cost},
+            "latency_ms": {"p50": p50},
+        }
+        if incomplete:
+            summary["incomplete"] = incomplete
+        (d / "summary.json").write_text(json.dumps(summary))
+        return d
+
+    table = results_table(
+        [
+            run("a", "full_schema", "standard", 50.0, 2219.28, 0.000522, 1300.6),
+            run("b", "selective_validated", "pooled", 48.0, 1500.1, 0.0004, 1800),
+        ]
+    )
+    lines = table.splitlines()
+    assert lines[2] == "| Full schema (baseline) | own database | 50% | 2,219 | $0.00052 | 1.3s |"
+    assert lines[3] == "| Selective + validation | all 75 | 48% | 1,500 | $0.00040 | 1.8s |"
+
+    with pytest.raises(ValueError, match="incomplete"):
+        results_table([run("c", "selective", "standard", 10, 1, 0, 1, incomplete={"answered": 3})])

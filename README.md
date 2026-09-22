@@ -161,6 +161,20 @@ points, so read the fixed and broken lists, not just the EX delta:
 uv run python scripts/compare.py runs/<run_a> runs/<run_b>
 ```
 
+A run stopped by the free-tier daily limit is marked incomplete; continue it the
+next day instead of starting over (it refuses if the strategy, its settings or
+the questions changed):
+
+```sh
+uv run python scripts/run_eval.py selective_pooled --resume runs/<run>
+```
+
+The Results table below is generated from run summaries, not typed by hand:
+
+```sh
+uv run python scripts/results_table.py runs/<run_a> runs/<run_b> ...
+```
+
 ## Offline index (M2)
 
 Built once per schema, used by the retriever. No LLM at query time.

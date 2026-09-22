@@ -163,3 +163,53 @@ def test_run_stops_and_marks_incomplete_when_quota_is_exhausted(tmp_path):
     assert len(read_results(run_dir)) == 1
     summary = json.loads((run_dir / "summary.json").read_text())
     assert summary["incomplete"] == {"reason": "daily limit", "answered": 1, "planned": 2}
+
+
+def test_an_interrupted_run_can_be_resumed_to_completion(tmp_path):
+    from sqlagent.llm import QuotaExhausted
+
+    execute = fake_execute({"SELECT 1": QueryResult(rows=[(1,)]), "SELECT 2": QueryResult(rows=[(2,), (3,)])})
+    first = runner.run_eval(
+        Scripted({1: Prediction("SELECT 1"), 2: QuotaExhausted("daily")}),
+        QUESTIONS,
+        GOLD,
+        runs_dir=tmp_path,
+        execute=execute,
+    )
+    assert json.loads((first / "summary.json").read_text())["incomplete"]["answered"] == 1
+
+    resumed = runner.run_eval(
+        Scripted({1: AssertionError("must not rerun"), 2: Prediction("SELECT 2")}),
+        QUESTIONS,
+        GOLD,
+        execute=execute,
+        resume=first,
+    )
+    assert resumed == first
+    rows = read_results(first)
+    assert [r["qid"] for r in rows] == [1, 2]
+    summary = json.loads((first / "summary.json").read_text())
+    assert "incomplete" not in summary
+    assert summary["overall"] == {"n": 2, "correct": 2, "ex": 100.0}
+
+
+def test_resume_refuses_a_different_configuration(tmp_path):
+    execute = fake_execute({"SELECT 1": QueryResult(rows=[(1,)]), "SELECT 2": QueryResult(rows=[(2,), (3,)])})
+    run_dir = runner.run_eval(GoldOracle(), QUESTIONS, GOLD, runs_dir=tmp_path, execute=execute)
+
+    class Changed(Scripted):
+        name = "gold_oracle"
+        config = {"different": True}
+
+    with pytest.raises(ValueError, match="strategy settings"):
+        runner.run_eval(Changed({}), QUESTIONS, GOLD, execute=execute, resume=run_dir)
+    with pytest.raises(ValueError, match="questions"):
+        runner.run_eval(GoldOracle(), QUESTIONS[:1], GOLD, execute=execute, resume=run_dir)
+
+
+def test_resuming_a_finished_run_changes_nothing(tmp_path):
+    execute = fake_execute({"SELECT 1": QueryResult(rows=[(1,)]), "SELECT 2": QueryResult(rows=[(2,), (3,)])})
+    run_dir = runner.run_eval(GoldOracle(), QUESTIONS, GOLD, runs_dir=tmp_path, execute=execute)
+    before = (run_dir / "results.jsonl").read_text()
+    runner.run_eval(GoldOracle(), QUESTIONS, GOLD, execute=execute, resume=run_dir)
+    assert (run_dir / "results.jsonl").read_text() == before
