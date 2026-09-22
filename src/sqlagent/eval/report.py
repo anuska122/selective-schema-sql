@@ -137,3 +137,36 @@ def format_comparison(c: dict) -> str:
         f"p50 latency ms: {c['p50_latency_ms'][0]} -> {c['p50_latency_ms'][1]}",
     ]
     return "\n".join(lines)
+
+
+STRATEGY_LABELS = {
+    "full_schema": "Full schema (baseline)",
+    "selective": "Selective",
+    "selective_validated": "Selective + validation",
+    "selective_recall": "Selective + validation, recall-first selector",
+}
+
+
+def results_table(run_dirs: list[Path]) -> str:
+    lines = [
+        "| Strategy | Tables visible | EX | Input tokens / question | Cost / question | p50 latency |",
+        "|---|---|---|---|---|---|",
+    ]
+    for run_dir in run_dirs:
+        summary = json.loads((run_dir / "summary.json").read_text())
+        if summary.get("incomplete"):
+            raise ValueError(f"{run_dir.name} is incomplete; resume it before publishing")
+        config = json.loads((run_dir / "config.json").read_text())
+        layout = config.get("strategy_config", {}).get("layout", "standard")
+        label = STRATEGY_LABELS.get(summary["strategy"], summary["strategy"])
+        per = summary["per_question"]
+        cells = [
+            label,
+            "all 75" if layout == "pooled" else "own database",
+            f"{summary['overall']['ex']:g}%",
+            f"{per['tokens_in']:,.0f}",
+            f"${per['cost_usd']:.5f}",
+            f"{summary['latency_ms']['p50'] / 1000:.1f}s",
+        ]
+        lines.append("| " + " | ".join(cells) + " |")
+    return "\n".join(lines)

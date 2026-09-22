@@ -1,5 +1,6 @@
 import argparse
 import sys
+from pathlib import Path
 
 from sqlagent import llm
 from sqlagent.eval.dataset import SAMPLE, load_sample
@@ -24,6 +25,7 @@ def main() -> int:
     parser.add_argument("strategy", choices=sorted(STRATEGIES))
     parser.add_argument("--limit", type=int, help="only the first N questions (smoke test)")
     parser.add_argument("--qids", help="comma-separated question ids to run")
+    parser.add_argument("--resume", type=Path, help="continue an incomplete run directory")
     args = parser.parse_args()
 
     questions = load_sample()
@@ -37,6 +39,7 @@ def main() -> int:
         load_gold(questions),
         prices=llm.PRICES,
         sample_path=SAMPLE if args.limit is None and not args.qids else None,
+        resume=args.resume,
     )
     print(run_dir.name)
     print((run_dir / "summary.json").read_text())
