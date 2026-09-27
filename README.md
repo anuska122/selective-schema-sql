@@ -43,10 +43,10 @@ Design rules:
 
 | Milestone | Scope | State |
 |---|---|---|
-| M1 | Eval harness + full-schema baseline | **Done**: baseline scores 50% EX without evidence hints; variance re-run pending |
+| M1 | Eval harness + full-schema baseline | **Done**: baseline scores 46-50% EX without evidence hints, measured twice |
 | M2 | Offline indexer | **Done**: FK graph with inferred keys, value index, descriptions, embeddings |
 | M3 | Retriever (go/no-go) | **Passed**: 99.3% of needed tables in the top 30 |
-| M4 | Selector | **Done**: matches the baseline at 34% fewer tokens, and holds accuracy with all 75 tables visible |
+| M4 | Selector | **Done**: matches the baseline's accuracy band at 34% fewer tokens, with all 75 tables visible too |
 | M5 | Validator + escalation ladder | **Done**: parse, name checks, EXPLAIN, repair then widen |
 | M6 | Observability, then FastAPI | **Done**: per-stage reporting in run summaries, ask endpoint |
 | M7 | Frontend | **Done**: chat-style Next.js app with history, light and dark themes |
@@ -57,7 +57,8 @@ Architectural decisions are issues labelled `decision`.
 ## Results
 
 BIRD Mini-Dev (PostgreSQL), frozen 50-question sample, no evidence hints,
-`gpt-oss-120b` generator, `gpt-oss-20b` selector, Groq free tier.
+`gpt-oss-120b` generator, `gpt-oss-20b` selector, Groq free tier. Each row is a
+single run; read the variance note below before comparing two rows.
 
 | Strategy | Tables visible | EX | Input tokens / question | Cost / question | p50 latency |
 |---|---|---|---|---|---|
@@ -65,20 +66,23 @@ BIRD Mini-Dev (PostgreSQL), frozen 50-question sample, no evidence hints,
 | Selective | own database | 46% | 1,425 | $0.00040 | 1.8s |
 | Selective + validation | own database | 50% | 1,455 | $0.00039 | 1.8s |
 | Selective | all 75 | 46% | 2,021 | $0.00043 | 1.7s |
-| Selective + validation, recall-first selector | own database | 44% | 2,285 | $0.00053 | 1.9s |
 
-- **All 75 tables visible:** selective keeps the same accuracy it has on a single
-  database (46%, 2 questions fixed and 2 broken). The full-schema prompt there is
-  8.2K-21.8K tokens, over the free tier's 8K request limit, so the baseline
-  cannot run at all.
-- **Selective with validation matches the baseline** with 34% fewer input
-  tokens; against it, it fixes 2 questions and breaks 2.
-- **More tables made answers worse.** A recall-first selector that also keeps
-  the retriever's top 4 tables includes the needed tables 98% of the time
-  (vs 82%), but scores 44% with 57% more tokens. Extra schema distracts the
-  generator, so it stays opt-in (`selective_recall`).
-- Two identical baseline runs differed by 2 questions, so differences of 2 or
-  fewer are within noise.
+- **Variance is the headline caveat.** The baseline was run twice with
+  byte-identical prompts at temperature 0: 50% and 46%, with 4 questions flipping
+  (1 fixed, 3 broken). So roughly 4 points of EX is run-to-run noise, and none of
+  the accuracy gaps in the table above are significant on 50 questions. The token
+  and cost numbers are stable: both runs averaged exactly 2,219 input tokens.
+- **The token saving is the real result:** selective matches the baseline's
+  accuracy band at 34% fewer input tokens and 25% lower cost.
+- **All 75 tables visible:** selective holds the same accuracy band with every
+  table in the corpus as a candidate (46%, 2 questions fixed and 2 broken). The
+  full-schema prompt there is 8.2K-21.8K tokens, over the free tier's 8K request
+  limit, so the baseline cannot run at all. This is the case selective retrieval
+  exists for.
+- **A recall-first selector did not pay for itself.** Also keeping the
+  retriever's top 4 tables includes the needed tables 98% of the time (vs 82%),
+  but costs 57% more tokens and scored 44%, so it buys no measurable accuracy
+  with the saving spent. It stays opt-in (`selective_recall`).
 - The retriever finds 99.3% of needed tables in its top 30 (all 498 questions,
   all 75 tables visible).
 - The repair step ran once in 50 questions and did not change the answer.
@@ -161,8 +165,8 @@ Each run writes three files to `runs/<timestamp>_<strategy>/`:
 Only `summary.json` is committed. `gold_oracle` returns the gold SQL; it must score 100% EX, which
 checks the harness itself.
 
-Compare two runs question by question. With 50 questions each one is worth 2
-points, so read the fixed and broken lists, not just the EX delta:
+Compare two runs question by question. Repeating one identical run flipped 4
+questions, so read the fixed and broken lists, not just the EX delta:
 
 ```sh
 uv run python scripts/compare.py runs/<run_a> runs/<run_b>
