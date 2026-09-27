@@ -24,9 +24,10 @@ def load_env(path: Path | None = None) -> None:
 
 def _dsn(user: str, password_var: str) -> str:
     load_env()
-    return (
-        f"host={PG_HOST} port={PG_PORT} dbname={PG_DATABASE} user={user} password={os.environ[password_var]}"
-    )
+    host = os.environ.get("SQLAGENT_PG_HOST") or PG_HOST
+    port = os.environ.get("SQLAGENT_PG_PORT") or PG_PORT
+    database = os.environ.get("SQLAGENT_PG_DATABASE") or PG_DATABASE
+    return f"host={host} port={port} dbname={database} user={user} password={os.environ[password_var]}"
 
 
 def ro_dsn() -> str:

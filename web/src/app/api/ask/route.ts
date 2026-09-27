@@ -1,9 +1,13 @@
 import { forward } from "@/lib/backend";
+import { allow, clientId } from "@/lib/rateLimit";
 
 const MAX_QUESTION_LENGTH = 2000;
 const MAX_BODY_BYTES = 16_384;
 
 export async function POST(request: Request) {
+  if (!allow(clientId(request))) {
+    return Response.json({ detail: "Too many questions from here. Try again later." }, { status: 429 });
+  }
   const raw = await request.text();
   if (new TextEncoder().encode(raw).length > MAX_BODY_BYTES) {
     return Response.json({ detail: "Request too large." }, { status: 413 });

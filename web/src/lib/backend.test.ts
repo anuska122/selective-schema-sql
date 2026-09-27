@@ -27,3 +27,21 @@ describe("forward", () => {
     expect((await response.json()).detail).toMatch(/not reachable/);
   });
 });
+
+describe("shared token", () => {
+  it("adds the token header for the backend when one is configured", async () => {
+    vi.stubEnv("API_TOKEN", "shared");
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({}));
+    await forward("/ask", { method: "POST", headers: { "content-type": "application/json" } });
+    const headers = fetchSpy.mock.calls[0][1]?.headers as Record<string, string>;
+    expect(headers["x-api-token"]).toBe("shared");
+    expect(headers["content-type"]).toBe("application/json");
+  });
+
+  it("sends no token header when none is configured", async () => {
+    vi.stubEnv("API_TOKEN", "");
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({}));
+    await forward("/databases");
+    expect(fetchSpy.mock.calls[0][1]?.headers).toBeUndefined();
+  });
+});

@@ -2,9 +2,11 @@ import json
 import logging
 from functools import lru_cache
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
+from sqlagent import db
+from sqlagent.api.limits import Guard, Rejected
 from sqlagent.api.service import AskService
 from sqlagent.errors import AbortRun
 from sqlagent.index.build import TABLE_MAP
@@ -21,7 +23,13 @@ class AskRequest(BaseModel):
 
 @lru_cache(maxsize=1)
 def get_service() -> AskService:
+    db.assert_read_only_role()
     return AskService(build_selective(validate=True, layout="auto"))
+
+
+@lru_cache(maxsize=1)
+def get_guard() -> Guard:
+    return Guard.from_env()
 
 
 @app.get("/health")
@@ -36,7 +44,11 @@ def databases() -> list[dict]:
 
 
 @app.post("/ask")
-def ask(request: AskRequest) -> dict:
+def ask(request: AskRequest, x_api_token: str | None = Header(default=None)) -> dict:
+    try:
+        get_guard().check(x_api_token)
+    except Rejected as e:
+        raise HTTPException(status_code=e.status, detail=e.detail) from e
     try:
         return get_service().ask(request.question, request.db_id)
     except AbortRun as e:

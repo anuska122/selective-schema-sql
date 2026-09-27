@@ -6,10 +6,17 @@ export function backendUrl(path: string): string {
   return `${base.replace(/\/$/, "")}${path}`;
 }
 
+function withToken(headers: HeadersInit | undefined): HeadersInit | undefined {
+  const token = process.env.API_TOKEN;
+  if (!token) return headers;
+  return { ...(headers as Record<string, string> | undefined), "x-api-token": token };
+}
+
 export async function forward(path: string, init?: RequestInit): Promise<Response> {
   try {
     const response = await fetch(backendUrl(path), {
       ...init,
+      headers: withToken(init?.headers),
       cache: "no-store",
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
