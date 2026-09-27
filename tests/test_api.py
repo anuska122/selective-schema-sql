@@ -67,9 +67,11 @@ def test_ask_reports_missing_sql():
 @pytest.fixture
 def client():
     app_module.get_service.cache_clear()
+    app_module.get_guard.cache_clear()
     with TestClient(app_module.app) as client:
         yield client
     app_module.get_service.cache_clear()
+    app_module.get_guard.cache_clear()
 
 
 def test_health(client):
@@ -112,3 +114,36 @@ def test_databases_lists_every_database_with_tables(client):
     assert len(databases) == 11
     financial = next(d for d in databases if d["db_id"] == "financial")
     assert "account" in financial["tables"]
+
+
+def guarded(client, monkeypatch, **guard_kwargs):
+    from sqlagent.api.limits import Guard
+
+    guard = Guard(**guard_kwargs)
+    monkeypatch.setattr(app_module, "get_service", lambda: service())
+    monkeypatch.setattr(app_module, "get_guard", lambda: guard)
+    return lambda **kw: client.post("/ask", json={"question": "q"}, **kw)
+
+
+def test_ask_requires_the_shared_token_when_one_is_configured(client, monkeypatch):
+    ask = guarded(client, monkeypatch, token="shared")
+    assert ask().status_code == 401
+    assert ask(headers={"x-api-token": "wrong"}).status_code == 401
+    assert ask(headers={"x-api-token": "shared"}).status_code == 200
+
+
+def test_ask_stops_at_the_daily_limit(client, monkeypatch):
+    ask = guarded(client, monkeypatch, daily_limit=1)
+    assert ask().status_code == 200
+    response = ask()
+    assert response.status_code == 429
+    assert response.json()["detail"] == "The demo has answered all it can today. Try again tomorrow."
+
+
+def test_ask_can_be_paused(client, monkeypatch):
+    assert guarded(client, monkeypatch, paused=True)().status_code == 503
+
+
+def test_health_is_not_gated(client, monkeypatch):
+    monkeypatch.setattr(app_module, "get_guard", lambda: None)
+    assert client.get("/health").status_code == 200

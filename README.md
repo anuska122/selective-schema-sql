@@ -274,12 +274,22 @@ in the prompt.
   that the model is told to treat as data. Whatever the model returns still has
   to pass `db.execute`.
 - **API and web app:** errors returned to clients are generic; details go to
-  the server log only. The web routes cap request bodies at 16 KB and send
-  `nosniff`, `frame-ancestors 'none'` and `no-referrer` headers.
-- **Accepted risks:** the API has no authentication or rate limit, so run it
-  locally only (anyone who reaches it can spend the Groq quota). ChromaDB has
-  open advisories that affect its server mode only; it runs embedded here, so
-  never start `chroma run`.
+  the server log only. The web routes cap request bodies at 16 KB and send a
+  content security policy, HSTS, `nosniff`, `frame-ancestors 'none'` and
+  `no-referrer`.
+- **Serving it publicly:** the API refuses to start unless it is connected as
+  `sqlagent_ro` with no write privileges. `SQLAGENT_API_TOKEN` makes it answer
+  only callers that present that token, so it can sit behind the web app without
+  being usable directly; `SQLAGENT_DAILY_QUESTIONS` caps questions per day and
+  `SQLAGENT_PAUSED=1` stops it entirely. The web layer adds a per-IP hourly limit
+  (`RATE_LIMIT_PER_HOUR`). Together these bound what a visitor can spend of the
+  model quota.
+- **Accepted risks:** there is no per-user authentication, so anyone with the
+  link can ask questions until the caps are reached. A visitor can make the model
+  run any `SELECT` over the demo databases, which is only acceptable because the
+  role cannot write and BIRD is public data — never point this at a private
+  database. ChromaDB has open advisories that affect its server mode only; it
+  runs embedded here, so never start `chroma run`.
 
 `tests/test_security.py` proves each database control by connecting directly as
 the role; `tests/test_db.py` covers the query path.

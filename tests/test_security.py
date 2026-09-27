@@ -166,3 +166,17 @@ def test_known_gap_role_can_persist_own_defaults(conn, sql):
         conn.execute("SET TRANSACTION READ WRITE")
         conn.execute(sql)
         raise psycopg.Rollback()
+
+
+def test_assert_read_only_role_accepts_the_read_only_role(conn):
+    from sqlagent import db
+
+    db.assert_read_only_role()
+
+
+def test_assert_read_only_role_refuses_the_admin_role(conn, monkeypatch):
+    from sqlagent import config, db
+
+    monkeypatch.setattr(config, "ro_dsn", config.admin_dsn)
+    with pytest.raises(RuntimeError, match="connected as postgres"):
+        db.assert_read_only_role()

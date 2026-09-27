@@ -1,4 +1,5 @@
 import json
+import os
 import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -13,7 +14,7 @@ from sqlglot.errors import SqlglotError
 from sqlagent import config
 
 MAX_ROWS = 10_000
-STATEMENT_TIMEOUT_MS = 10_000
+STATEMENT_TIMEOUT_MS = int(os.environ.get("SQLAGENT_STATEMENT_TIMEOUT_MS") or 10_000)
 
 _FORBIDDEN_NODES = (
     exp.Insert,
@@ -71,6 +72,21 @@ def validate_select(query: str) -> str:
         if node.args.get("locks"):
             raise RejectedQuery("row locking clauses are not allowed")
     return query.strip().rstrip(";").strip()
+
+
+def assert_read_only_role() -> None:
+    with psycopg.connect(config.ro_dsn(), connect_timeout=5) as conn:
+        user, superuser = conn.execute(
+            "SELECT current_user, (SELECT rolsuper FROM pg_roles WHERE rolname = current_user)"
+        ).fetchone()
+        (writes,) = conn.execute(
+            "SELECT count(*) FROM information_schema.table_privileges "
+            "WHERE grantee = current_user AND privilege_type <> 'SELECT'"
+        ).fetchone()
+    if user != config.RO_ROLE:
+        raise RuntimeError(f"refusing to serve: connected as {user}, expected {config.RO_ROLE}")
+    if superuser or writes:
+        raise RuntimeError(f"refusing to serve: {user} is not read-only")
 
 
 def execute(
