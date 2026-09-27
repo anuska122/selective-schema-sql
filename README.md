@@ -16,49 +16,16 @@ Selective retrieval should beat full-schema prompting on all three. This is a
 known research area (schema linking, database context compression; see e.g.
 CHESS, CRUSH4SQL, and the counter-argument "The Death of Schema Linking?").
 The goal here isn't novelty. It's a working implementation, **measured
-honestly** against a strong full-schema baseline on the
-[BIRD Mini-Dev](https://github.com/bird-bench/mini_dev) benchmark (PostgreSQL version).
-
-## Architecture
-
-```
-OFFLINE (rebuilt when the schema changes)
-  describe + embed every table/column · foreign-key graph · value index · table templates
-
-ONLINE (per question)
-  1. Retriever   no LLM    hybrid vector + BM25 → ~30-50 candidate tables   (metric: recall)
-  2. Selector    1 cheap LLM call → minimal set, expanded along FK graph
-  3. Generator   1 strong LLM call over the small schema subset
-  4. Validator   no LLM first: SQLGlot parse, EXPLAIN, column checks, read-only check
-                 → repair call only on failure → widen schema after two failed repairs
-```
-
-Design rules:
-
-- A stage that doesn't need an LLM must not use one.
-- Any added LLM call must earn its place with a measured accuracy gain.
-- No feature lands without a before/after benchmark number.
-
-## Status
-
-| Milestone | Scope | State |
-|---|---|---|
-| M1 | Eval harness + full-schema baseline | **Done**: baseline scores 46-50% EX without evidence hints, measured twice |
-| M2 | Offline indexer | **Done**: FK graph with inferred keys, value index, descriptions, embeddings |
-| M3 | Retriever (go/no-go) | **Passed**: 99.3% of needed tables in the top 30 |
-| M4 | Selector | **Done**: matches the baseline's accuracy band at 34% fewer tokens, with all 75 tables visible too |
-| M5 | Validator + escalation ladder | **Done**: parse, name checks, EXPLAIN, repair then widen |
-| M6 | Observability, then FastAPI | **Done**: per-stage reporting in run summaries, ask endpoint |
-| M7 | Frontend | **Done**: chat-style Next.js app with history, light and dark themes |
-
-Work is tracked in GitHub issues, one per task, grouped by milestone.
-Architectural decisions are issues labelled `decision`.
+honestly** against a strong full-schema baseline.
 
 ## Results
 
-BIRD Mini-Dev (PostgreSQL), frozen 50-question sample, no evidence hints,
-`gpt-oss-120b` generator, `gpt-oss-20b` selector, Groq free tier. Each row is a
-single run; read the variance note below before comparing two rows.
+Measured on [BIRD Mini-Dev](https://github.com/bird-bench/mini_dev) (PostgreSQL):
+**11 databases, 75 tables, 798 columns, 3.9M rows**. Frozen 50-question sample,
+no evidence hints, `gpt-oss-120b` generator, `gpt-oss-20b` selector, Groq free
+tier. EX is execution accuracy: the query runs and returns the same rows as the
+reference answer. Each row is one run; read the variance note before comparing
+two rows.
 
 | Strategy | Tables visible | EX | Input tokens / question | Cost / question | p50 latency |
 |---|---|---|---|---|---|
@@ -89,6 +56,24 @@ single run; read the variance note below before comparing two rows.
 
 Run summaries are in `runs/*/summary.json`. Cost is at Groq list prices; the
 actual spend was $0.
+
+## Architecture
+
+```
+OFFLINE (rebuilt when the schema changes)
+  describe + embed every table/column · foreign-key graph · value index · table templates
+
+ONLINE (per question)
+  1. Retriever   no LLM    hybrid vector + BM25 → ~30-50 candidate tables   (metric: recall)
+  2. Selector    1 cheap LLM call → minimal set, expanded along FK graph
+  3. Generator   1 strong LLM call over the small schema subset
+  4. Validator   no LLM first: SQLGlot parse, EXPLAIN, column checks, read-only check
+                 → repair call only on failure → widen schema after two failed repairs
+```
+
+Only the selector and the generator call a model. Retrieval, join resolution
+and validation are deterministic, so a question costs two LLM calls, or three
+when a query fails validation and is repaired.
 
 ## Local setup
 
@@ -156,6 +141,10 @@ to the per-minute token limit, and a run stops with `QuotaExhausted` rather than
 waiting out the daily limit. A full 50-question run uses about 150K tokens, so
 plan one per day. Use `--limit` for smoke tests.
 
+Strategies: `gold_oracle` (harness check), `full_schema` (baseline), `selective`,
+`selective_validated`, `selective_pooled` (all 75 tables visible) and
+`selective_recall` (recall-first selector).
+
 Each run writes three files to `runs/<timestamp>_<strategy>/`:
 
 - `config.json`: git SHA, sample hash, question ids, price table
@@ -186,7 +175,7 @@ The Results table above is generated from run summaries, not typed by hand:
 uv run python scripts/results_table.py runs/<run_a> runs/<run_b> ...
 ```
 
-## Offline index (M2)
+## Offline index
 
 Built once per schema, used by the retriever. No LLM at query time.
 
@@ -213,7 +202,7 @@ Everything lands in `data/index/`, which is gitignored. Descriptions and sampled
 values are treated as untrusted text: they are generated from database content
 and end up in prompts.
 
-## API (M6)
+## API
 
 ```sh
 uv run uvicorn sqlagent.api.app:app --port 8000
@@ -229,7 +218,7 @@ latency, which rung was reached). The offline index must be built first, and
 audited query path as everything else. There is no authentication: run it
 locally, not on a public address.
 
-## Web app (M7)
+## Web app
 
 A chat-style Next.js + TypeScript app in `web/`. Each answer plays a short
 animated diagram of how it was found: the tables searched, the ones chosen,
@@ -301,7 +290,7 @@ data/  runs/               gitignored: dataset, offline index, run outputs
 
 ## Contributing
 
-- **Issues first:** one issue per task, under its milestone.
+- **Issues first:** one issue per task.
 - **Branches:** `feature/<ticket-or-scope>` or `bugfix/<ticket-or-scope>`, e.g.
   `feature/23-ci`. Branch from `main`; open the PR against `main`.
 - **Commits:** [Conventional Commits](https://www.conventionalcommits.org/), e.g.
