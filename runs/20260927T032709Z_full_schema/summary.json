@@ -1,0 +1,58 @@
+{
+  "run": "20260927T032709Z_full_schema",
+  "strategy": "full_schema",
+  "git_sha": "10631350b0835ee032511a54a8693c3772d23c3a",
+  "overall": {
+    "n": 50,
+    "correct": 23,
+    "ex": 46.0
+  },
+  "by_difficulty": {
+    "challenging": {
+      "n": 10,
+      "correct": 3,
+      "ex": 30.0
+    },
+    "moderate": {
+      "n": 25,
+      "correct": 9,
+      "ex": 36.0
+    },
+    "simple": {
+      "n": 15,
+      "correct": 11,
+      "ex": 73.33
+    }
+  },
+  "errors": {
+    "db_error": 2
+  },
+  "totals": {
+    "llm_calls": 50,
+    "tokens_in": 110964,
+    "tokens_out": 18362,
+    "cached_tokens": 5888,
+    "cost_usd": 0.02722
+  },
+  "per_question": {
+    "llm_calls": 1.0,
+    "tokens_in": 2219.28,
+    "tokens_out": 367.24,
+    "cached_tokens": 117.76,
+    "cost_usd": 0.000544
+  },
+  "latency_ms": {
+    "p50": 1214.25,
+    "p95": 1770.2
+  },
+  "stages": {
+    "generate": {
+      "questions": 50,
+      "llm_calls": 50,
+      "tokens_in": 110964,
+      "tokens_out": 18362,
+      "cached_tokens": 5888,
+      "p50_latency_ms": 1214.07
+    }
+  }
+}
