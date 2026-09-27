@@ -248,26 +248,6 @@ latency, which rung was reached). The offline index must be built first, and
 audited query path as everything else. There is no authentication: run it
 locally, not on a public address.
 
-## Web app
-
-A chat-style Next.js + TypeScript app in `web/`. Each answer plays a short
-animated diagram of how it was found: the tables searched, the ones chosen,
-the join between them with the columns the query read, then the result. Rows
-follow as a table, with the SQL and timings in expandable sections. Past questions are kept
-in the sidebar (stored in your browser), and the database can be narrowed from
-the sidebar. Enter sends, Shift+Enter adds a line. Light and dark themes follow
-the system setting.
-
-```sh
-uv run uvicorn sqlagent.api.app:app --port 8000
-cd web && npm install && npm run dev
-```
-
-The browser only talks to the Next.js server; its `/api/*` routes forward to
-the FastAPI backend at `BACKEND_URL` (default `http://127.0.0.1:8000`), so the
-backend address never reaches the client. Checks: `npm run lint`,
-`npm run typecheck`, `npm test`, `npm run build`.
-
 ## Security model
 
 All generated SQL is treated as untrusted. The controls sit in the database, not
@@ -293,7 +273,6 @@ in the prompt.
   comment and tag delimiters escaped, truncated) and wrapped in `<schema>` tags
   that the model is told to treat as data. Whatever the model returns still has
   to pass `db.execute`.
-
 - **API and web app:** errors returned to clients are generic; details go to
   the server log only. The web routes cap request bodies at 16 KB and send
   `nosniff`, `frame-ancestors 'none'` and `no-referrer` headers.
@@ -317,19 +296,3 @@ tests/                     security and unit tests; fixtures/ for CI
 eval/                      committed eval artifacts: table → database map, frozen sample
 data/  runs/               gitignored: dataset, offline index, run outputs
 ```
-
-## Contributing
-
-- **Issues first:** one issue per task.
-- **Branches:** `feature/<ticket-or-scope>` or `bugfix/<ticket-or-scope>`, e.g.
-  `feature/23-ci`. Branch from `main`; open the PR against `main`.
-- **Commits:** [Conventional Commits](https://www.conventionalcommits.org/), e.g.
-  `feat(security): add read-only role`, `test(config): ...`, `ci: ...`, `docs: ...`.
-- **Never commit** secrets, `.env`, datasets, build or coverage output, or
-  unrelated changes.
-- **Definition of done:** implementation, tests, coverage, documentation, API
-  documentation, security review, and all relevant CI checks complete and
-  passing. The PR template has the checklist.
-
-CI runs on every PR: lint and format, lockfile check, security tests against a
-real Postgres with coverage enforced, and a gitleaks secret scan.
