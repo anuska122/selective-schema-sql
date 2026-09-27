@@ -67,6 +67,8 @@ def test_validate_accepts_read_only_queries(query):
         "GRANT SELECT ON colour TO PUBLIC",
         "DO $$ BEGIN PERFORM 1; END $$",
         "SELEC 1 FROM",
+        "SELECT * FROM e WHERE name = 'Women's Soccer'",
+        "SELECT 'unterminated",
     ],
 )
 def test_validate_rejects(query):

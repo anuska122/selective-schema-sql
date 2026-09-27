@@ -1,4 +1,4 @@
-from sqlglot.errors import ParseError
+from sqlglot.errors import SqlglotError
 
 from sqlagent.index.fk_graph import FKGraph
 from sqlagent.validation.validator import referenced_names
@@ -22,7 +22,7 @@ def query_lineage(sql: str | None, tables: list[str], graph: FKGraph) -> dict:
     if sql:
         try:
             used_tables, used_columns = referenced_names(sql)
-        except (ParseError, ValueError):
+        except (SqlglotError, ValueError):
             used_tables, used_columns = set(), {}
         for table in tables:
             if table in used_tables:

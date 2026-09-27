@@ -8,7 +8,7 @@ import psycopg
 import sqlglot
 from psycopg import sql
 from sqlglot import exp
-from sqlglot.errors import ParseError
+from sqlglot.errors import SqlglotError
 
 from sqlagent import config
 
@@ -55,7 +55,7 @@ class QueryResult:
 def validate_select(query: str) -> str:
     try:
         statements = [s for s in sqlglot.parse(query, read="postgres") if s is not None]
-    except ParseError as e:
+    except SqlglotError as e:
         raise RejectedQuery(f"unparseable SQL: {e}") from e
     if len(statements) != 1:
         raise RejectedQuery(f"expected exactly one statement, got {len(statements)}")
