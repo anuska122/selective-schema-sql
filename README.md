@@ -57,23 +57,53 @@ two rows.
 Run summaries are in `runs/*/summary.json`. Cost is at Groq list prices; the
 actual spend was $0.
 
-## Architecture
+## How it works
 
+The schema is indexed once, offline. Each question then walks a short pipeline
+where only two steps call a model.
+
+```mermaid
+flowchart TD
+    Q["Question<br/>&quot;how many superheroes have blue eyes?&quot;"]
+
+    subgraph offline["OFFLINE · rebuilt only when the schema changes"]
+        PG[("Postgres<br/>75 tables · 798 columns")]
+        PG --> DESC["Descriptions<br/>plain English per table and column,<br/>so a name like cust_typ_cd is findable"]
+        PG --> FKG["Foreign-key graph<br/>declared keys + keys inferred<br/>from names and verified on data"]
+        PG --> VALS["Value index<br/>distinct values of<br/>low-cardinality columns"]
+        DESC --> EMB["Embeddings<br/>ChromaDB, local model"]
+    end
+
+    Q --> RET
+
+    subgraph online["ONLINE · per question"]
+        RET["1 · Retriever — no LLM<br/>vector + BM25 + value lookup<br/>75 tables → 30 candidates"]
+        SEL["2 · Selector — 1 cheap LLM call<br/>cut to the minimal set, then expand<br/>along the FK graph so joins are reachable<br/>30 candidates → 2 tables"]
+        GEN["3 · Generator — 1 strong LLM call<br/>SQL against those 2 tables only"]
+        VAL{"4 · Validator — no LLM<br/>parses · every column exists · EXPLAIN<br/>read-only"}
+        REP["Repair — 1 LLM call<br/>the error is fed back once"]
+        WIDE["Widen<br/>add the top 12 candidates<br/>and generate once more"]
+
+        RET --> SEL --> GEN --> VAL
+        VAL -->|"invalid"| REP --> VAL
+        VAL -->|"invalid again"| WIDE
+    end
+
+    EMB -.->|"semantic match"| RET
+    VALS -.->|"'blue' is a value,<br/>not a column"| RET
+    FKG -.->|"join paths"| SEL
+
+    VAL -->|"valid"| EXEC["Read-only execution<br/>SELECT only · 10s timeout · 10k row cap · audited"]
+    WIDE --> EXEC
+    EXEC --> ANS["234"]
 ```
-OFFLINE (rebuilt when the schema changes)
-  describe + embed every table/column · foreign-key graph · value index · table templates
 
-ONLINE (per question)
-  1. Retriever   no LLM    hybrid vector + BM25 → ~30-50 candidate tables   (metric: recall)
-  2. Selector    1 cheap LLM call → minimal set, expanded along FK graph
-  3. Generator   1 strong LLM call over the small schema subset
-  4. Validator   no LLM first: SQLGlot parse, EXPLAIN, column checks, read-only check
-                 → repair call only on failure → widen schema after two failed repairs
-```
-
-Only the selector and the generator call a model. Retrieval, join resolution
-and validation are deterministic, so a question costs two LLM calls, or three
-when a query fails validation and is repaired.
+That is the real trace for that question: 75 tables went in, 2 reached the
+prompt, 2 model calls were made, and the answer was correct. The retriever and
+validator use no model at all — retrieval is vectors and keywords, join
+resolution is graph traversal, validation is a parser and `EXPLAIN`. A question
+therefore costs two LLM calls, three if a repair is needed, and four in the
+worst case where the schema is widened.
 
 ## Local setup
 
