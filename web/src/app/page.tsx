@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { ChatSidebar } from "@/components/chat/ChatSidebar";
 import { Composer } from "@/components/chat/Composer";
 import { EmptyState } from "@/components/chat/EmptyState";
@@ -17,19 +17,49 @@ const currentHour = () => new Date().getHours();
 
 export default function Home() {
   const [databases, setDatabases] = useState<Database[]>([]);
+  const [databaseError, setDatabaseError] = useState(false);
+  const requestController = useRef<AbortController | null>(null);
   const conversations = useSyncExternalStore(subscribeHistory, getHistory, getServerHistory);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [dbId, setDbId] = useState("");
   const [busy, setBusy] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const menuButton = useRef<HTMLButtonElement>(null);
   const hour = useSyncExternalStore(noopSubscribe, currentHour, () => 12);
   const scroller = useRef<HTMLDivElement>(null);
 
+  function closeNavigation() {
+    setMobileOpen(false);
+    menuButton.current?.focus();
+  }
+
   useEffect(() => {
+    if (!mobileOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMobileOpen(false);
+        menuButton.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [mobileOpen]);
+
+  const loadDatabases = useCallback(() => {
     listDatabases()
-      .then(setDatabases)
-      .catch(() => setDatabases([]));
+      .then((items) => {
+        setDatabases(items);
+        setDatabaseError(false);
+      })
+      .catch(() => {
+        setDatabases([]);
+        setDatabaseError(true);
+      });
   }, []);
+
+  useEffect(() => { loadDatabases(); }, [loadDatabases]);
+  useEffect(() => () => requestController.current?.abort(), []);
 
   const active = useMemo(() => conversations.find((c) => c.id === activeId) ?? null, [conversations, activeId]);
   const messages = active?.messages ?? [];
@@ -49,38 +79,67 @@ export default function Home() {
     setActiveId(conversation.id);
     setDraft("");
     setBusy(true);
+    const controller = new AbortController();
+    requestController.current = controller;
     commit(conversation);
     let result;
     try {
-      result = await ask(text, dbId);
+      result = await ask(text, dbId, controller.signal);
     } catch (e) {
       result = e as Error;
     }
+    if (controller.signal.aborted) result = new Error("Request cancelled. The server may still finish processing it.");
     commit(finishTurn(conversation, pendingId, result));
+    requestController.current = null;
     setBusy(false);
   }
 
   const dbLabel = databaseName(dbId);
   const composer = (
-    <Composer value={draft} onChange={setDraft} onSend={() => send(draft)} busy={busy} dbLabel={dbLabel} autoFocus />
+    <Composer value={draft} onChange={setDraft} onSend={() => send(draft)} onCancel={() => requestController.current?.abort()} busy={busy} dbLabel={dbLabel} autoFocus />
   );
 
   return (
     <div className="flex h-screen">
+      {mobileOpen && (
+        <button type="button" aria-label="Dismiss navigation" onClick={closeNavigation} className="fixed inset-0 z-30 bg-black/30 md:hidden" />
+      )}
       <ChatSidebar
         conversations={conversations}
         activeId={activeId}
         databases={databases}
         dbId={dbId}
+        mobileOpen={mobileOpen}
+        onClose={closeNavigation}
         onNew={() => {
           setActiveId(null);
           setDraft("");
+          closeNavigation();
         }}
-        onOpen={setActiveId}
+        onOpen={(id) => {
+          setActiveId(id);
+          const conversation = conversations.find((c) => c.id === id);
+          const lastQuestion = conversation?.messages.findLast((m) => m.role === "user");
+          if (lastQuestion?.role === "user") setDbId(lastQuestion.dbId);
+          closeNavigation();
+        }}
         onDbChange={setDbId}
       />
       <main className="flex min-w-0 flex-1 flex-col">
+        {databaseError && (
+          <div role="alert" className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Could not load the database list. Check the query service and try again.
+            <button type="button" onClick={loadDatabases} className="ml-2 underline">Retry database list</button>
+          </div>
+        )}
         <div className="flex items-center gap-2 border-b border-stone-200 px-4 py-3 md:hidden dark:border-stone-800">
+          <button
+            ref={menuButton} type="button" aria-label="Open navigation"
+            aria-controls="chat-navigation" aria-expanded={mobileOpen}
+            onClick={() => setMobileOpen(true)} className="rounded px-2 py-1"
+          >
+            ☰
+          </button>
           <Mark className="size-6" />
           <span className="font-serif text-stone-800 dark:text-stone-100">Ask your database</span>
           <button type="button" onClick={() => setActiveId(null)} className="ml-auto text-sm text-accent-600">

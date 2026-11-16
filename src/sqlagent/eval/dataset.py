@@ -14,7 +14,7 @@ SEED = 20260915
 
 @dataclass(frozen=True)
 class Question:
-    question_id: int
+    question_id: int | str
     db_id: str
     question: str
     evidence: str

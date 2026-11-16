@@ -71,6 +71,7 @@ def summarize(run_dir: Path, incomplete: str | None = None, answered: int = 0, p
     summary = {
         "run": run_dir.name,
         "strategy": config["strategy"],
+        "comparison": config.get("comparison", "set"),
         "git_sha": config["git"]["sha"],
         "overall": _ex(rows),
         "by_difficulty": {d: _ex(by_difficulty[d]) for d in sorted(by_difficulty)},
@@ -97,6 +98,15 @@ def compare(run_a: Path, run_b: Path) -> dict:
         summary_path = run / "summary.json"
         if summary_path.exists() and json.loads(summary_path.read_text()).get("incomplete"):
             raise ValueError(f"{run.name} is incomplete; re-run it before comparing")
+    configs = [json.loads((run / "config.json").read_text()) for run in (run_a, run_b)]
+    modes = [(c.get("comparison", "set"), c.get("max_rows", 10000)) for c in configs]
+    if modes[0] != modes[1]:
+        raise ValueError("runs use different comparison modes or row limits")
+    if (
+        all(c.get("questions_sha256") for c in configs)
+        and configs[0]["questions_sha256"] != configs[1]["questions_sha256"]
+    ):
+        raise ValueError("runs cover different question contents")
     a = {r["qid"]: r for r in load_results(run_a)}
     b = {r["qid"]: r for r in load_results(run_b)}
     if a.keys() != b.keys():
@@ -148,6 +158,10 @@ STRATEGY_LABELS = {
 
 
 def results_table(run_dirs: list[Path]) -> str:
+    configs = [json.loads((run / "config.json").read_text()) for run in run_dirs]
+    modes = {(c.get("comparison", "set"), c.get("max_rows", 10000)) for c in configs}
+    if len(modes) > 1:
+        raise ValueError("runs use different comparison modes or row limits; publish separate tables")
     lines = [
         "| Strategy | Tables visible | EX | Input tokens / question | Cost / question | p50 latency |",
         "|---|---|---|---|---|---|",

@@ -45,3 +45,17 @@ def test_stage_without_llm_is_free_without_prices():
 def test_unknown_model_price_fails_loudly():
     with pytest.raises(KeyError, match="no price"):
         stage_cost_usd(StageTrace("gen", 1.0, llm_calls=1, model="other", tokens_in=1), PRICES)
+
+
+def test_multiset_scoring_preserves_duplicates_but_ignores_order():
+    assert not execution_match([(1,), (1,)], [(1,)], comparison="multiset")
+    assert execution_match([(2,), (1,), (1,)], [(1,), (2,), (1,)], comparison="multiset")
+    assert execution_match([([1],)], [((1,),)], comparison="multiset")
+
+
+def test_ordered_scoring_preserves_row_order_and_duplicates():
+    assert not execution_match([(1,), (2,)], [(2,), (1,)], comparison="ordered")
+    assert not execution_match([(1,), (1,)], [(1,)], comparison="ordered")
+    assert execution_match([(1,), (2,)], [(1,), (2,)], comparison="ordered")
+    with pytest.raises(ValueError, match="unknown comparison"):
+        execution_match([], [], comparison="unknown")

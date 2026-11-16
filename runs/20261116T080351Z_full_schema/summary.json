@@ -1,0 +1,37 @@
+{
+  "run": "20261116T080351Z_full_schema",
+  "strategy": "full_schema",
+  "comparison": "multiset",
+  "git_sha": "42f9361fde0f474d54350bbc81fcc1035c6031fa",
+  "overall": {
+    "n": 0,
+    "correct": 0,
+    "ex": null
+  },
+  "by_difficulty": {},
+  "errors": {},
+  "totals": {
+    "llm_calls": 0,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "cached_tokens": 0,
+    "cost_usd": 0
+  },
+  "per_question": {
+    "llm_calls": 0.0,
+    "tokens_in": 0.0,
+    "tokens_out": 0.0,
+    "cached_tokens": 0.0,
+    "cost_usd": 0.0
+  },
+  "latency_ms": {
+    "p50": null,
+    "p95": null
+  },
+  "stages": {},
+  "incomplete": {
+    "reason": "Model provider HTTP 401: authentication failed; check GROQ_API_KEY.",
+    "answered": 0,
+    "planned": 498
+  }
+}

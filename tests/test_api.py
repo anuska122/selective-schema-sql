@@ -147,3 +147,79 @@ def test_ask_can_be_paused(client, monkeypatch):
 def test_health_is_not_gated(client, monkeypatch):
     monkeypatch.setattr(app_module, "get_guard", lambda: None)
     assert client.get("/health").status_code == 200
+
+
+def test_endpoint_sanitizes_execution_and_validation_errors(client, monkeypatch, caplog):
+    prediction = Prediction(
+        "SELECT 1",
+        details={
+            "selected": ["colour"],
+            "first_error": "private first error",
+            "repair_error": "private repair error",
+            "final_error": "private final error",
+        },
+    )
+    monkeypatch.setattr(
+        app_module,
+        "get_service",
+        lambda: service(
+            prediction=prediction,
+            result=QueryResult(error="private connection details", error_type="db_error"),
+        ),
+    )
+    response = client.post("/ask", json={"question": "q"})
+    assert response.status_code == 200
+    assert "private" not in response.text
+    assert response.json()["error"] == "Unable to answer this question. Try rephrasing it."
+    assert response.json()["details"] == {"selected": ["colour"]}
+    assert "private connection details" in caplog.text
+    assert prediction.details["first_error"] == "private first error"
+
+
+def test_readiness_initializes_service_and_checks_database(client, monkeypatch):
+    calls = []
+    monkeypatch.setattr(app_module, "get_service", lambda: calls.append("service"))
+    monkeypatch.setattr(app_module.db, "assert_read_only_role", lambda: calls.append("database"))
+    response = client.get("/ready")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ready"}
+    assert calls == ["service", "database"]
+
+
+@pytest.mark.parametrize("component", ["service", "database"])
+def test_readiness_reports_unavailable_without_leaking_errors(client, monkeypatch, component):
+    def fail():
+        raise RuntimeError("private configuration")
+
+    monkeypatch.setattr(app_module, "get_service", fail if component == "service" else lambda: service())
+    monkeypatch.setattr(app_module.db, "assert_read_only_role", fail)
+    response = client.get("/ready")
+    assert response.status_code == 503
+    assert "private" not in response.text
+    assert client.get("/health").status_code == 200
+
+
+def test_provider_failure_returns_generic_service_unavailable(client, monkeypatch):
+    from sqlagent.llm import ProviderUnavailable
+
+    monkeypatch.setattr(
+        app_module, "get_service", lambda: service(prediction=ProviderUnavailable("private auth"))
+    )
+    response = client.post("/ask", json={"question": "q"})
+    assert response.status_code == 503
+    assert "private auth" not in response.text
+    assert "unavailable" in response.json()["detail"]
+
+
+def test_request_id_correlates_generation_and_execution():
+    strategy = FakeStrategy(PREDICTION)
+    calls = []
+
+    def execute(sql, **kwargs):
+        calls.append(kwargs)
+        return ROWS
+
+    answer = AskService(strategy, execute=execute).ask("q", request_id="request-123")
+    assert answer["request_id"] == "request-123"
+    assert strategy.questions[0].question_id == "request-123"
+    assert calls[0]["question_id"] == "request-123"

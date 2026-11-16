@@ -14,6 +14,10 @@ export function clientId(request: Request): string {
   return forwarded || request.headers.get("x-real-ip") || "unknown";
 }
 
+export function trustedClientId(request: Request): string {
+  return process.env.TRUST_PROXY_HEADERS === "1" ? clientId(request) : "unknown";
+}
+
 export function allow(id: string, now = Date.now()): boolean {
   const recent = (hits.get(id) ?? []).filter((at) => now - at < WINDOW_MS);
   if (recent.length >= limit()) {

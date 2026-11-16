@@ -1,11 +1,13 @@
 import { forward } from "@/lib/backend";
-import { allow, clientId } from "@/lib/rateLimit";
+import { createHash } from "node:crypto";
+import { allow, trustedClientId } from "@/lib/rateLimit";
 
 const MAX_QUESTION_LENGTH = 2000;
 const MAX_BODY_BYTES = 16_384;
 
 export async function POST(request: Request) {
-  if (!allow(clientId(request))) {
+  const client = trustedClientId(request);
+  if (!allow(client)) {
     return Response.json({ detail: "Too many questions from here. Try again later." }, { status: 429 });
   }
   const raw = await request.text();
@@ -28,7 +30,8 @@ export async function POST(request: Request) {
 
   return forward("/ask", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", "x-client-id": createHash("sha256").update(client).digest("hex") },
     body: JSON.stringify({ question, db_id: dbId }),
+    signal: request.signal,
   });
 }

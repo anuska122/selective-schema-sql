@@ -3,6 +3,7 @@ import time
 from pathlib import Path
 
 from sqlagent import generation, llm, schema
+from sqlagent.errors import AbortRun
 from sqlagent.eval.dataset import Question
 from sqlagent.eval.types import Prediction, StageTrace
 from sqlagent.index.build import INDEX_DIR, TABLE_MAP
@@ -94,6 +95,8 @@ class Selective:
             selection = self.selector.select(question.question, candidates)
             stages.append(selection.trace)
             tables = [t for t in selection.tables if t in self.table_renders]
+        except AbortRun:
+            raise
         except (ValueError, llm.LLMError):
             stages.append(StageTrace("select_failed", round((time.perf_counter() - start) * 1000, 2)))
             tables = []
@@ -130,6 +133,7 @@ class Selective:
 
         tables = self._select_tables(question, candidates, stages)
         details: dict = {
+            "retrieved": [c.table for c in candidates],
             "candidates": [c.table for c in candidates[:10]],
             "selected": tables,
             "rung": "generate",
@@ -171,6 +175,9 @@ class Selective:
         stages.append(trace)
         final = self._check(sql, question)
         details["validation"] = final.stage if final else None
+        if final and not final.ok:
+            details["final_error"] = final.message
+            sql = None
         return self._finish(sql, stages, details)
 
 

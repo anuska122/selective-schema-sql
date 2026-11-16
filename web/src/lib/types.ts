@@ -18,6 +18,7 @@ export type Join = {
 };
 
 export type AskResponse = {
+  request_id?: string | null;
   question: string;
   sql: string | null;
   columns: string[];

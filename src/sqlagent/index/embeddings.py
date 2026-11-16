@@ -104,13 +104,31 @@ def load_documents(path: Path) -> list[SchemaDocument]:
 
 
 class SchemaIndex:
-    def __init__(self, embedder: Embedder, path: Path = CHROMA_PATH):
+    def __init__(self, embedder: Embedder, path: Path = CHROMA_PATH, *, require_existing: bool = False):
         self.embedder = embedder
         self.path = path
+        if require_existing and not (path / "chroma.sqlite3").is_file():
+            raise RuntimeError("schema vector index is missing; run scripts/build_index.py")
         self._client = chromadb.PersistentClient(path=str(path))
-        self._collection = self._client.get_or_create_collection(
-            COLLECTION, metadata={"hnsw:space": "cosine"}
+        self._collection = (
+            self._client.get_collection(COLLECTION)
+            if require_existing
+            else self._client.get_or_create_collection(COLLECTION, metadata={"hnsw:space": "cosine"})
         )
+
+    def assert_matches(self, documents: list[SchemaDocument]) -> None:
+        expected = {d.id: (d.text, d.metadata) for d in documents}
+        if not expected or len(expected) != len(documents) or self.size != len(documents):
+            raise RuntimeError("schema vector index is empty or incomplete; rebuild the index")
+        stored = self._collection.get(include=["documents", "metadatas"])
+        actual = {
+            key: (text, metadata)
+            for key, text, metadata in zip(
+                stored["ids"], stored["documents"], stored["metadatas"], strict=True
+            )
+        }
+        if actual != expected:
+            raise RuntimeError("schema vector index does not match its documents; rebuild the index")
 
     @property
     def size(self) -> int:

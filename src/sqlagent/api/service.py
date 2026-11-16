@@ -14,10 +14,11 @@ class AskService:
         self.execute = execute
         self.max_rows = max_rows
 
-    def ask(self, question: str, db_id: str = "") -> dict[str, Any]:
-        prediction = self.strategy.answer(Question(0, db_id, question, "", "", ""))
+    def ask(self, question: str, db_id: str = "", *, request_id: str | None = None) -> dict[str, Any]:
+        prediction = self.strategy.answer(Question(request_id or 0, db_id, question, "", "", ""))
         answer: dict[str, Any] = {
             "question": question,
+            "request_id": request_id,
             "sql": prediction.sql,
             "columns": [],
             "rows": [],
@@ -30,7 +31,7 @@ class AskService:
             answer["error"] = "no SQL produced"
             return answer
 
-        result = self.execute(prediction.sql, caller="api", question_id=None, max_rows=self.max_rows)
+        result = self.execute(prediction.sql, caller="api", question_id=request_id, max_rows=self.max_rows)
         answer.update(
             columns=result.columns,
             rows=[[str(v) for v in row] for row in result.rows],

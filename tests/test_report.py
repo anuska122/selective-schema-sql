@@ -166,3 +166,39 @@ def test_results_table_from_run_summaries(tmp_path):
 
     with pytest.raises(ValueError, match="incomplete"):
         results_table([run("c", "selective", "standard", 10, 1, 0, 1, incomplete={"answered": 3})])
+
+
+def test_compare_refuses_different_scoring_modes(tmp_path):
+    a = write_run(tmp_path / "a", [row(1, True)])
+    b = write_run(tmp_path / "b", [row(1, True)])
+    path = b / "config.json"
+    config = json.loads(path.read_text())
+    config["comparison"] = "multiset"
+    path.write_text(json.dumps(config))
+    with pytest.raises(ValueError, match="different comparison"):
+        compare(a, b)
+
+
+def test_results_table_refuses_mixed_comparison_modes(tmp_path):
+    from sqlagent.eval.report import results_table
+
+    a = write_run(tmp_path / "a", [row(1, True)])
+    b = write_run(tmp_path / "b", [row(1, True)])
+    config = json.loads((b / "config.json").read_text())
+    config["comparison"] = "multiset"
+    (b / "config.json").write_text(json.dumps(config))
+    with pytest.raises(ValueError, match="different comparison"):
+        results_table([a, b])
+
+
+@pytest.mark.parametrize("field", ["max_rows", "questions_sha256"])
+def test_compare_refuses_inconsistent_row_caps_or_question_contents(tmp_path, field):
+    a = write_run(tmp_path / "a", [row(1, True)])
+    b = write_run(tmp_path / "b", [row(1, True)])
+    for run, value in ((a, 1), (b, 2)):
+        path = run / "config.json"
+        config = json.loads(path.read_text())
+        config[field] = value
+        path.write_text(json.dumps(config))
+    with pytest.raises(ValueError):
+        compare(a, b)
