@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+: "${SQLAGENT_API_TOKEN:?set SQLAGENT_API_TOKEN before serving the public demo}"
+: "${GROQ_API_KEY:?set GROQ_API_KEY before serving the public demo}"
+
 export SQLAGENT_RO_PASSWORD="$(openssl rand -hex 24)"
 
 pg_ctl -D "$PGDATA" -o "-c listen_addresses=127.0.0.1 -k /tmp" -w start

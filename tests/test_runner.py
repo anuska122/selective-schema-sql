@@ -213,3 +213,69 @@ def test_resuming_a_finished_run_changes_nothing(tmp_path):
     before = (run_dir / "results.jsonl").read_text()
     runner.run_eval(GoldOracle(), QUESTIONS, GOLD, execute=execute, resume=run_dir)
     assert (run_dir / "results.jsonl").read_text() == before
+
+
+def test_new_runs_use_duplicate_aware_scoring_and_record_mode(tmp_path):
+    execute = fake_execute({"SELECT 1": QueryResult(rows=[(1,), (1,)])})
+    run = runner.run_eval(GoldOracle(), QUESTIONS[:1], GOLD, runs_dir=tmp_path, execute=execute)
+    assert read_results(run)[0]["correct"] is False
+    assert json.loads((run / "config.json").read_text())["comparison"] == "multiset"
+    assert json.loads((run / "summary.json").read_text())["comparison"] == "multiset"
+    with pytest.raises(ValueError, match="comparison"):
+        runner.run_eval(GoldOracle(), QUESTIONS[:1], GOLD, execute=execute, resume=run, comparison="set")
+
+
+def test_legacy_runs_can_be_resumed_with_explicit_set_scoring(tmp_path):
+    execute = fake_execute({"SELECT 1": QueryResult(rows=[(1,)])})
+    run = runner.run_eval(
+        GoldOracle(), QUESTIONS[:1], GOLD, runs_dir=tmp_path, execute=execute, comparison="set"
+    )
+    path = run / "config.json"
+    config = json.loads(path.read_text())
+    del config["comparison"]
+    path.write_text(json.dumps(config))
+    runner.run_eval(GoldOracle(), QUESTIONS[:1], GOLD, execute=execute, resume=run, comparison="set")
+    assert len(read_results(run)) == 1
+
+
+def test_unknown_comparison_is_rejected_before_creating_run(tmp_path):
+    with pytest.raises(ValueError, match="unknown comparison"):
+        runner.run_eval(GoldOracle(), QUESTIONS, GOLD, runs_dir=tmp_path, comparison="unknown")
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_evaluation_row_cap_is_recorded_forwarded_and_checked_on_resume(tmp_path):
+    seen = []
+
+    def execute(sql, **kwargs):
+        seen.append(kwargs)
+        return QueryResult(rows=[(1,)])
+
+    run = runner.run_eval(
+        GoldOracle(), QUESTIONS[:1], GOLD, runs_dir=tmp_path, execute=execute, max_rows=50000
+    )
+    assert seen[0]["max_rows"] == 50000
+    assert json.loads((run / "config.json").read_text())["max_rows"] == 50000
+    with pytest.raises(ValueError, match="row cap"):
+        runner.run_eval(GoldOracle(), QUESTIONS[:1], GOLD, execute=execute, resume=run)
+
+
+def test_resume_rejects_changed_question_text_with_the_same_id(tmp_path):
+    from dataclasses import replace
+
+    execute = fake_execute({"SELECT 1": QueryResult(rows=[(1,)])})
+    run = runner.run_eval(GoldOracle(), QUESTIONS[:1], GOLD, runs_dir=tmp_path, execute=execute)
+    changed = [replace(QUESTIONS[0], question="different question")]
+    with pytest.raises(ValueError, match="question contents"):
+        runner.run_eval(GoldOracle(), changed, GOLD, execute=execute, resume=run)
+
+
+def test_provider_failures_produce_incomplete_runs_not_incorrect_answers(tmp_path):
+    from sqlagent.llm import ProviderUnavailable
+
+    strategy = Scripted({1: ProviderUnavailable("authentication failed")})
+    run = runner.run_eval(strategy, QUESTIONS[:1], GOLD, runs_dir=tmp_path)
+    summary = json.loads((run / "summary.json").read_text())
+    assert summary["incomplete"]["answered"] == 0
+    assert summary["overall"] == {"n": 0, "correct": 0, "ex": None}
+    assert read_results(run) == []

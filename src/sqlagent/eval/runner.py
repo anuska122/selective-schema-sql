@@ -11,7 +11,7 @@ from sqlagent import config, db
 from sqlagent.errors import AbortRun
 from sqlagent.eval.dataset import Question
 from sqlagent.eval.gold import GoldResult
-from sqlagent.eval.metrics import execution_match, stage_cost_usd
+from sqlagent.eval.metrics import COMPARISONS, execution_match, stage_cost_usd
 from sqlagent.eval.report import summarize
 from sqlagent.eval.types import Prediction, Strategy
 
@@ -39,6 +39,8 @@ def evaluate_question(
     gold: GoldResult,
     prices: dict[str, dict[str, float]],
     execute: Callable[..., db.QueryResult],
+    comparison: str = "multiset",
+    max_rows: int = db.MAX_ROWS,
 ) -> dict:
     start = time.perf_counter()
     try:
@@ -76,19 +78,28 @@ def evaluate_question(
         row["exec_error"] = row["exec_error"] or "no_sql"
         return row
 
-    result = execute(prediction.sql, caller=strategy.name, question_id=question.question_id)
+    limits = {"max_rows": max_rows} if max_rows != db.MAX_ROWS else {}
+    result = execute(prediction.sql, caller=strategy.name, question_id=question.question_id, **limits)
     row["rows_returned"] = len(result.rows)
     row["truncated"] = result.truncated
     row["exec_ms"] = result.duration_ms
     if not result.ok:
         row["exec_error"] = f"{result.error_type}: {result.error}"
     else:
-        row["correct"] = not result.truncated and execution_match(result.rows, gold.rows)
+        row["correct"] = not result.truncated and execution_match(
+            result.rows, gold.rows, comparison=comparison
+        )
     return row
 
 
 def _new_run(
-    strategy: Strategy, questions: list[Question], prices, sample_path: Path | None, runs_dir: Path
+    strategy: Strategy,
+    questions: list[Question],
+    prices,
+    sample_path: Path | None,
+    runs_dir: Path,
+    comparison: str,
+    max_rows: int,
 ) -> Path:
     started = datetime.now(UTC)
     run_dir = runs_dir / f"{started.strftime('%Y%m%dT%H%M%SZ')}_{strategy.name}"
@@ -96,6 +107,7 @@ def _new_run(
     (run_dir / "config.json").write_text(
         json.dumps(
             {
+                "comparison": comparison,
                 "strategy": strategy.name,
                 "strategy_config": strategy.config,
                 "started": started.isoformat(),
@@ -106,7 +118,10 @@ def _new_run(
                 else None,
                 "question_ids": [q.question_id for q in questions],
                 "prices_per_million_tokens": prices,
-                "max_rows": db.MAX_ROWS,
+                "max_rows": max_rows,
+                "questions_sha256": hashlib.sha256(
+                    json.dumps([asdict(q) for q in questions], sort_keys=True).encode()
+                ).hexdigest(),
                 "statement_timeout_ms": db.STATEMENT_TIMEOUT_MS,
             },
             indent=2,
@@ -119,11 +134,23 @@ def _new_run(
     return run_dir
 
 
-def _check_resumable(run_dir: Path, strategy: Strategy, questions: list[Question]) -> set[int]:
+def _check_resumable(
+    run_dir: Path, strategy: Strategy, questions: list[Question], comparison: str, max_rows: int
+) -> set[int]:
     config = json.loads((run_dir / "config.json").read_text())
     mismatches = [
         name
         for name, same in (
+            ("comparison", config.get("comparison", "set") == comparison),
+            ("row cap", config.get("max_rows", db.MAX_ROWS) == max_rows),
+            (
+                "question contents",
+                not config.get("questions_sha256")
+                or config["questions_sha256"]
+                == hashlib.sha256(
+                    json.dumps([asdict(q) for q in questions], sort_keys=True).encode()
+                ).hexdigest(),
+            ),
             ("strategy", config["strategy"] == strategy.name),
             ("strategy settings", config["strategy_config"] == strategy.config),
             ("questions", config["question_ids"] == [q.question_id for q in questions]),
@@ -148,19 +175,30 @@ def run_eval(
     runs_dir: Path = RUNS_DIR,
     execute: Callable[..., db.QueryResult] = db.execute,
     resume: Path | None = None,
+    comparison: str = "multiset",
+    max_rows: int = db.MAX_ROWS,
 ) -> Path:
+    if comparison not in COMPARISONS:
+        raise ValueError(f"unknown comparison: {comparison}")
+    if not 1 <= max_rows <= 1_000_000:
+        raise ValueError("max_rows must be between 1 and 1000000")
     prices = prices or {}
     if resume:
-        run_dir, done = resume, _check_resumable(resume, strategy, questions)
+        run_dir, done = resume, _check_resumable(resume, strategy, questions, comparison, max_rows)
     else:
-        run_dir, done = _new_run(strategy, questions, prices, sample_path, runs_dir), set()
+        run_dir, done = (
+            _new_run(strategy, questions, prices, sample_path, runs_dir, comparison, max_rows),
+            set(),
+        )
     aborted = None
     with (run_dir / "results.jsonl").open("a") as out:
         for q in questions:
             if q.question_id in done:
                 continue
             try:
-                row = evaluate_question(strategy, q, gold[q.question_id], prices, execute)
+                row = evaluate_question(
+                    strategy, q, gold[q.question_id], prices, execute, comparison, max_rows
+                )
             except AbortRun as e:
                 aborted = str(e)
                 break

@@ -18,14 +18,44 @@ CHESS, CRUSH4SQL, and the counter-argument "The Death of Schema Linking?").
 The goal here isn't novelty. It's a working implementation, **measured
 honestly** against a strong full-schema baseline.
 
-## Results
+## Current status
+
+The offline index, hybrid retrieval, selection, generation, validation/repair,
+evaluation harness, FastAPI service and Next.js demo are implemented. Recent
+maintenance adds strict vector-index checks, generic HTTP errors, request IDs,
+mobile navigation, request cancellation, database-list recovery, persistent
+single-host worker quotas, and reproducible evaluation settings.
+
+The full **498-question reference cache and gold-oracle check pass at 100%** with
+an explicit **50,000-row evaluation cap**. This verifies reference execution and
+the harness; it is not a generated-SQL accuracy score. The API still returns at
+most 100 rows and the normal database execution default remains 10,000 rows.
+
+**Model benchmarks are blocked:** the currently configured Groq key is rejected
+with HTTP 401. Full-schema and selective runs stop as incomplete, with no accuracy
+score, and can be resumed after credentials are repaired. Historical scores below
+remain unchanged. Browser visual checks are also unavailable in the current
+execution environment; mobile behavior is covered by interaction tests.
+
+Latest local verification (2026-11-16): **380 Python tests passed**, **98.77%
+coverage**, **54 web tests passed**; Python lint/format checks, web lint/typecheck
+and production build passed. The Docker image builds and passes local readiness,
+token enforcement and shared-quota checks, including persistence across container
+replacement. These are local checks, not remote CI
+or proof of a successful model answer.
+
+Implementation status and decisions are maintained in [docs/PLAN.md](docs/PLAN.md)
+and [docs/DECISIONS.md](docs/DECISIONS.md).
+
+## Historical model results
 
 Measured on [BIRD Mini-Dev](https://github.com/bird-bench/mini_dev) (PostgreSQL):
 **11 databases, 75 tables, 798 columns, 3.9M rows**. Frozen 50-question sample,
 no evidence hints, `gpt-oss-120b` generator, `gpt-oss-20b` selector, Groq free
-tier. EX is execution accuracy: the query runs and returns the same rows as the
-reference answer. Each row is one run; read the variance note before comparing
-two rows.
+tier. The historical EX metric below uses set equality: the query runs and returns
+the same distinct rows as the reference answer, ignoring duplicate counts and row order.
+These figures have not been recomputed with the stricter scoring now available.
+Each row is one run; read the variance note before comparing two rows.
 
 | Strategy | Tables visible | EX | Input tokens / question | Cost / question | p50 latency |
 |---|---|---|---|---|---|
@@ -101,8 +131,8 @@ flowchart TD
 That is the real trace for that question: 75 tables went in, 2 reached the
 prompt, 2 model calls were made, and the answer was correct. The retriever and
 validator use no model at all — retrieval is vectors and keywords, join
-resolution is graph traversal, validation is a parser and `EXPLAIN`. A question
-therefore costs two LLM calls, three if a repair is needed, and four in the
+resolution is graph traversal, validation is a parser and `EXPLAIN`. If the final
+widened query still fails validation, the pipeline returns no SQL for execution. A question therefore costs two LLM calls, three if a repair is needed, and four in the
 worst case where the schema is widened.
 
 ## Local setup
@@ -112,6 +142,8 @@ worst case where the schema is widened.
 ### 1. Secrets
 
 Create a `.env` in the repo root. It is gitignored; never commit it.
+[.env.example](.env.example) lists the available backend settings;
+[web/.env.example](web/.env.example) lists the web server settings.
 
 ```sh
 cat > .env <<EOF
@@ -205,6 +237,108 @@ The Results table above is generated from run summaries, not typed by hand:
 uv run python scripts/results_table.py runs/<run_a> runs/<run_b> ...
 ```
 
+### Scoring and larger evaluations
+
+New evaluation runs default to `--comparison multiset`: duplicate counts matter,
+while row order is ignored. Use `--comparison ordered` when row order is part of
+the task, or `--comparison set` to reproduce the historical table above. These
+are project metrics, not a claim of official BIRD evaluator equivalence. Scoring
+mode is saved in run configuration and summaries; resume, comparison and table
+export reject mixed modes. Comparison and table export also reject different row
+limits. New runs fingerprint question contents so resume detects changed text or SQL. To resume a historical run, explicitly pass `--comparison set`.
+
+The frozen 50-question sample remains unchanged. To evaluate beyond it without
+silently changing the sample, first cache reference results for the full dataset:
+
+```sh
+uv run python scripts/cache_gold.py --all --max-rows 50000
+uv run python scripts/run_eval.py gold_oracle --all --max-rows 50000
+uv run python scripts/run_eval.py full_schema --all --max-rows 50000
+uv run python scripts/run_eval.py selective_validated --all --max-rows 50000
+```
+
+The full cache is `data/gold/all.json`, with its row cap recorded in
+`data/gold/all.meta.json`. `--gold-cache` selects another cache for `run_eval.py`,
+and `cache_gold.py --output` selects its output. Both commands must use the same
+`--max-rows` value. The CLI bounds evaluation caps to 1–1,000,000 rows; requests
+remain read-only and retain the database statement timeout.
+
+Question IDs 340, 346 and 397 return 25,061, 29,936 and 11,446 reference rows.
+The explicit 50,000-row evaluation policy covers them without excluding any
+questions or raising the public API limit. Cache creation makes no model calls
+and refuses to write if a reference query fails or remains truncated.
+
+Provider authentication, network and exhausted retry failures stop model runs
+as **incomplete**, rather than recording hundreds of wrong answers. The CLI
+returns exit code 2 for an incomplete run. Table export and error analysis reject
+incomplete runs. After repairing credentials, resume the recorded runs:
+
+```sh
+uv run python scripts/run_eval.py full_schema --all --max-rows 50000 \
+  --resume runs/20261116T080351Z_full_schema
+uv run python scripts/run_eval.py selective_validated --all --max-rows 50000 \
+  --resume runs/20261116T080356Z_selective_validated
+```
+
+Run error analysis after a completed evaluation:
+
+```sh
+uv run python scripts/analyze_errors.py runs/<completed-run>
+```
+
+It groups failures into possible retrieval misses, selection misses, missing or
+invalid SQL, execution errors, and wrong results. These are diagnostic heuristics
+based on the reference query's tables, not proof of causality. New selective
+traces retain the full retrieved table list; historical top-ten candidate lists
+cannot establish a retrieval miss. On the historical validated 50-question run,
+this check finds 25 correct answers, 6 possible selection misses and 19 other
+wrong results. Repeat paired runs under identical settings before making an
+accuracy-improvement claim. Model runs consume provider quota.
+
+### Web demo
+
+```sh
+cd web
+npm ci
+cp .env.example .env.local
+npm run dev
+```
+
+Set `BACKEND_URL` to the API address. For a token-protected backend, set the web
+server's `API_TOKEN` to the same value as `SQLAGENT_API_TOKEN`; never expose it in
+a `NEXT_PUBLIC_` variable. Database selection and saved questions are accessible
+from the navigation menu on mobile as well as the desktop sidebar. Questions
+are independent requests: saved history is not sent as model conversation context.
+
+The composer offers **Cancel request** while waiting. Cancellation aborts the
+browser request and propagates to the web proxy; a model or database operation
+already running on the API may still finish and consume quota. Database-list
+failures show a retry action. Mobile navigation exposes databases and history,
+and reopening a saved question restores its database selection.
+
+### Quotas and proxy trust
+
+The web server keeps an additional rolling per-client limit in memory
+(`RATE_LIMIT_PER_HOUR`, default 5). It ignores forwarded IP headers unless
+`TRUST_PROXY_HEADERS=1`. Enable this only behind a proxy that replaces incoming
+client IP headers; otherwise all visitors intentionally share an anonymous bucket.
+The web proxy hashes the client identifier before forwarding it to the API.
+
+Set `SQLAGENT_LIMIT_DB` to enable SQLite-backed API quotas shared by workers using
+the same file. Reservations are atomic; rejected hourly requests do not spend
+the daily budget. The daily limit defaults to 100 (`SQLAGENT_DAILY_QUESTIONS`);
+the per-client limit defaults to 5 per UTC clock hour
+(`SQLAGENT_HOURLY_QUESTIONS`). Client identifiers are trusted only with a configured
+shared API token; unauthenticated direct callers share a bucket. Requests reserve
+quota before model execution, including requests that later fail or are cancelled.
+
+Without `SQLAGENT_LIMIT_DB`, the API retains its local in-memory daily counter.
+The Docker image enables SQLite by default at `/home/user/quota/limits.sqlite3`.
+Mount `/home/user/quota` on a persistent volume to preserve quotas across container
+replacement. This supports workers on one host sharing a local SQLite file;
+separate hosts require a central quota service. SQLite on a network filesystem
+is not a supported substitute.
+
 ## Offline index
 
 Built once per schema, used by the retriever. No LLM at query time.
@@ -228,7 +362,11 @@ table is undescribed:
 | `chroma/` | embeddings of one document per table and per column (fastembed `bge-small-en-v1.5`, local) | no |
 | `manifest.json` | counts, per-part content hashes, a combined content hash, and the offline token cost | — |
 
-Everything lands in `data/index/`, which is gitignored. Descriptions and sampled
+Everything lands in `data/index/`, which is gitignored. Loading refuses a missing,
+empty, incomplete or stale vector collection. Stored documents and metadata must
+match `documents.json`, database mappings must agree, and a present manifest must
+match the embedding model, documents, values and foreign-key graph. Loading never
+creates a replacement empty collection. Descriptions and sampled
 values are treated as untrusted text: they are generated from database content
 and end up in prompts.
 
@@ -245,8 +383,42 @@ curl -s localhost:8000/ask -H 'content-type: application/json' \
 the SQL, up to 100 result rows, and the per-stage trace (calls, tokens,
 latency, which rung was reached). The offline index must be built first, and
 `GROQ_API_KEY` must be set. Results come back through the same read-only,
-audited query path as everything else. There is no authentication: run it
-locally, not on a public address.
+audited query path as everything else. The API supports a shared token through `SQLAGENT_API_TOKEN`; when it is unset,
+`/ask` is unauthenticated and should stay local. `/health` is a lightweight liveness
+probe. Use `/ready` for readiness: it initializes the pipeline and checks the
+read-only database connection, returning 503 with a generic error on failure.
+The readiness probe does not make a model request or test provider credentials
+or quota. A valid `/ready` response therefore cannot establish that Groq will
+accept a request. API responses include a `request_id` that also links SQL
+validation and execution audit records.
+
+## Local deployment verification
+
+The Docker bundle includes PostgreSQL, the public BIRD dataset, the offline index
+and the API. It does not include the Next.js web server. Build the bundle in a
+separate directory so local `.env` files are never copied into the image:
+
+```sh
+deploy/assemble.sh /tmp/sqlagent-bundle
+docker build -f deploy/Dockerfile -t sqlagent:local /tmp/sqlagent-bundle
+```
+
+Export `GROQ_API_KEY` and a strong `SQLAGENT_API_TOKEN` in your shell, then run:
+
+```sh
+docker run --name sqlagent-demo \
+  -p 127.0.0.1:7860:7860 \
+  -e GROQ_API_KEY -e SQLAGENT_API_TOKEN \
+  -v sqlagent-quota:/home/user/quota \
+  sqlagent:local
+```
+
+The entrypoint refuses missing credentials, generates a fresh read-only database
+password and keeps PostgreSQL listening on loopback inside the container. Docker
+health checks use `/ready`. `/health` and `/ready` are public probes; `/ask`
+requires the token. A rejected provider key still allows readiness because no
+provider call is made by that probe. Keep the binding local for verification;
+configure TLS, proxy trust and the server-only web token before public hosting.
 
 ## Security model
 
@@ -277,8 +449,9 @@ in the prompt.
   the server log only. The web routes cap request bodies at 16 KB and send a
   content security policy, HSTS, `nosniff`, `frame-ancestors 'none'` and
   `no-referrer`.
-- **Serving it publicly:** the API refuses to start unless it is connected as
-  `sqlagent_ro` with no write privileges. `SQLAGENT_API_TOKEN` makes it answer
+- **Serving it publicly:** the API checks that it is connected as
+  `sqlagent_ro` with no write privileges before initializing the query service.
+  Configure your deployment to probe `/ready` before routing question traffic. `SQLAGENT_API_TOKEN` makes it answer
   only callers that present that token, so it can sit behind the web app without
   being usable directly; `SQLAGENT_DAILY_QUESTIONS` caps questions per day and
   `SQLAGENT_PAUSED=1` stops it entirely. The web layer adds a per-IP hourly limit

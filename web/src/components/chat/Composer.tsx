@@ -9,11 +9,12 @@ type Props = {
   busy: boolean;
   dbLabel: string;
   autoFocus?: boolean;
+  onCancel?: () => void;
 };
 
 const MAX_HEIGHT = 220;
 
-export function Composer({ value, onChange, onSend, busy, dbLabel, autoFocus }: Props) {
+export function Composer({ value, onChange, onSend, busy, dbLabel, autoFocus, onCancel }: Props) {
   const ref = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -57,6 +58,11 @@ export function Composer({ value, onChange, onSend, busy, dbLabel, autoFocus }: 
         <span className="rounded-md border border-stone-200 px-2 py-0.5 text-xs text-stone-500 dark:border-stone-700 dark:text-stone-400">
           {dbLabel}
         </span>
+        {busy && onCancel && (
+          <button type="button" onClick={onCancel} className="ml-auto rounded px-2 py-1 text-sm text-stone-600 dark:text-stone-300">
+            Cancel request
+          </button>
+        )}
         <button
           type="submit"
           aria-label="Send"

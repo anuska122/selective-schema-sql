@@ -1,6 +1,9 @@
 import json
+from collections import Counter
 
 from sqlagent.eval.types import StageTrace
+
+COMPARISONS = ("set", "multiset", "ordered")
 
 
 def _hashable(value):
@@ -15,8 +18,17 @@ def result_set(rows: list[tuple]) -> set[tuple]:
     return {tuple(_hashable(v) for v in row) for row in rows}
 
 
-def execution_match(predicted: list[tuple], gold: list[tuple]) -> bool:
-    return result_set(predicted) == result_set(gold)
+def execution_match(predicted: list[tuple], gold: list[tuple], *, comparison: str = "set") -> bool:
+    """Legacy set scoring, duplicate-aware multiset scoring, or exact row ordering."""
+    if comparison == "set":
+        return result_set(predicted) == result_set(gold)
+    normalised = [tuple(_hashable(v) for v in row) for row in predicted]
+    expected = [tuple(_hashable(v) for v in row) for row in gold]
+    if comparison == "multiset":
+        return Counter(normalised) == Counter(expected)
+    if comparison == "ordered":
+        return normalised == expected
+    raise ValueError(f"unknown comparison: {comparison}")
 
 
 def stage_cost_usd(stage: StageTrace, prices: dict[str, dict[str, float]]) -> float:

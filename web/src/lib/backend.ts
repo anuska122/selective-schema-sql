@@ -18,7 +18,9 @@ export async function forward(path: string, init?: RequestInit): Promise<Respons
       ...init,
       headers: withToken(init?.headers),
       cache: "no-store",
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+      signal: init?.signal
+        ? AbortSignal.any([init.signal, AbortSignal.timeout(TIMEOUT_MS)])
+        : AbortSignal.timeout(TIMEOUT_MS),
     });
     const body = await response.text();
     return new Response(body, {

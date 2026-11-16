@@ -33,6 +33,10 @@ class QuotaExhausted(LLMError, AbortRun):
     pass
 
 
+class ProviderUnavailable(LLMError, AbortRun):
+    pass
+
+
 @dataclass(frozen=True)
 class LLMResponse:
     text: str
@@ -103,12 +107,21 @@ class GroqClient:
         waited = self._wait_for_budget(model, expected_tokens)
         for attempt in range(1, MAX_ATTEMPTS + 1):
             start = self._clock()
-            response = self._http.post(GROQ_URL, headers=self._headers, json=body)
+            try:
+                response = self._http.post(GROQ_URL, headers=self._headers, json=body)
+            except httpx.RequestError as e:
+                raise ProviderUnavailable("The model provider could not be reached.") from e
             latency_ms = (self._clock() - start) * 1000
             self._record_budget(model, response.headers)
 
             if response.status_code == 200:
                 return self._parse(response.json(), stage, model, latency_ms, waited)
+            if response.status_code in {401, 403}:
+                raise ProviderUnavailable(
+                    f"Model provider HTTP {response.status_code}: authentication failed; check GROQ_API_KEY."
+                )
+            if response.status_code == 404:
+                raise ProviderUnavailable(f"Model provider could not find the configured model: {model}.")
             if response.status_code == 429 or response.status_code >= 500:
                 delay = parse_duration(response.headers.get("retry-after")) or 2.0**attempt
                 if delay > self._max_wait_s:
@@ -120,6 +133,11 @@ class GroqClient:
                     self._sleep(delay)
                     waited += delay * 1000
                     continue
+                if response.status_code == 429:
+                    raise QuotaExhausted("Model provider HTTP 429: rate limit persisted after retries.")
+                raise ProviderUnavailable(
+                    f"Model provider HTTP {response.status_code}: unavailable after retries."
+                )
             raise LLMError(f"{model} HTTP {response.status_code}: {response.text[:300]}")
 
     def _wait_for_budget(self, model: str, expected_tokens: int) -> float:

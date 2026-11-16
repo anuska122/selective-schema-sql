@@ -11,14 +11,28 @@ type Props = {
   onNew: () => void;
   onOpen: (id: string) => void;
   onDbChange: (dbId: string) => void;
+  mobileOpen?: boolean;
+  onClose?: () => void;
 };
 
-export function ChatSidebar({ conversations, activeId, databases, dbId, onNew, onOpen, onDbChange }: Props) {
+export function ChatSidebar({
+  conversations, activeId, databases, dbId, onNew, onOpen, onDbChange,
+  mobileOpen = false, onClose,
+}: Props) {
   return (
-    <aside className="hidden w-72 shrink-0 flex-col border-r border-stone-200 bg-[#f3f1ec] md:flex dark:border-stone-800 dark:bg-[#1f1e1d]">
+    <aside
+      id="chat-navigation"
+      aria-label="Question navigation"
+      className={`${mobileOpen ? "flex fixed inset-y-0 left-0 z-40 shadow-xl" : "hidden"} w-72 shrink-0 flex-col border-r border-stone-200 bg-[#f3f1ec] md:static md:flex md:shadow-none dark:border-stone-800 dark:bg-[#1f1e1d]`}
+    >
       <div className="flex items-center gap-2.5 px-4 pb-3 pt-5">
         <Mark />
         <span className="font-serif text-lg text-stone-800 dark:text-stone-100">Ask your database</span>
+        {mobileOpen && (
+          <button type="button" autoFocus onClick={onClose} className="ml-auto rounded px-2 py-1 md:hidden" aria-label="Close navigation">
+            ×
+          </button>
+        )}
       </div>
 
       <div className="px-3">

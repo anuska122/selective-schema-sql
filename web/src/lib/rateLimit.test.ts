@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { allow, clientId, reset } from "./rateLimit";
+import { allow, clientId, trustedClientId, reset } from "./rateLimit";
 
 describe("clientId", () => {
   it("takes the first forwarded address", () => {
@@ -46,5 +46,15 @@ describe("allow", () => {
     vi.stubEnv("RATE_LIMIT_PER_HOUR", "not a number");
     for (let i = 0; i < 5; i++) expect(allow("a")).toBe(true);
     expect(allow("a")).toBe(false);
+  });
+});
+
+
+describe("trusted proxy configuration", () => {
+  it("uses a shared bucket unless proxy headers are explicitly trusted", () => {
+    const request = new Request("http://localhost", { headers: { "x-forwarded-for": "203.0.113.7" } });
+    expect(trustedClientId(request)).toBe("unknown");
+    vi.stubEnv("TRUST_PROXY_HEADERS", "1");
+    expect(trustedClientId(request)).toBe("203.0.113.7");
   });
 });

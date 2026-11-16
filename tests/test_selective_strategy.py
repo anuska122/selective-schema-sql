@@ -135,3 +135,17 @@ def test_build_selective_names_each_configuration_distinctly(
         FakeClient("", ""), layout=layout, validate=validate, recall_first=recall_first
     )
     assert strategy.name == expected
+
+
+def test_selector_quota_exhaustion_stops_before_generation(monkeypatch):
+    from sqlagent.llm import QuotaExhausted
+
+    strategy, client, _ = build()
+
+    def exhausted(*args, **kwargs):
+        raise QuotaExhausted("daily quota")
+
+    monkeypatch.setattr(strategy.selector, "select", exhausted)
+    with pytest.raises(QuotaExhausted, match="daily quota"):
+        strategy.answer(QUESTION)
+    assert client.calls == []

@@ -103,3 +103,12 @@ def test_config_records_whether_validation_is_on(validate):
     strategy = Selective(client, FakeRetriever(), Selector(client, FKGraph([])), RENDERS, validator)
     assert strategy.config["validation"] is validate
     assert strategy.validated_name == ("selective_validated" if validate else "selective")
+
+
+def test_failed_widening_does_not_return_invalid_sql_for_execution():
+    strategy, client = build("SELECT ghost FROM account", "SELECT ghost2 FROM account", "DELETE FROM account")
+    prediction = strategy.answer(QUESTION)
+    assert prediction.sql is None
+    assert prediction.details["validation"] == "parse"
+    assert prediction.details["final_error"]
+    assert client.stages == ["select", "generate", "repair", "generate"]

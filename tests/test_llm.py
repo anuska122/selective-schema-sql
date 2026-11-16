@@ -182,3 +182,34 @@ def test_json_mode_sets_response_format():
     assert requests[0]["max_completion_tokens"] == 4096
     assert "response_format" not in requests[1]
     assert "max_completion_tokens" not in requests[1]
+
+
+@pytest.mark.parametrize("status", [401, 403, 404])
+def test_provider_configuration_failures_abort_the_run(status):
+    from sqlagent.errors import AbortRun
+
+    client, requests, _ = client_with([httpx.Response(status, text="provider private details")])
+    with pytest.raises(AbortRun) as stopped:
+        client.complete([], stage="s")
+    assert "provider private details" not in str(stopped.value)
+    assert len(requests) == 1
+
+
+def test_network_failure_aborts_instead_of_scoring_a_wrong_answer():
+    from sqlagent.errors import AbortRun
+
+    def fail(request):
+        raise httpx.ConnectError("private endpoint", request=request)
+
+    client = GroqClient("test-key", http=httpx.Client(transport=httpx.MockTransport(fail)))
+    with pytest.raises(AbortRun, match="could not be reached"):
+        client.complete([], stage="s")
+
+
+def test_persistent_server_errors_abort_after_retry_budget():
+    from sqlagent.errors import AbortRun
+
+    client, requests, _ = client_with([httpx.Response(503)] * llm.MAX_ATTEMPTS)
+    with pytest.raises(AbortRun, match="503"):
+        client.complete([], stage="s")
+    assert len(requests) == llm.MAX_ATTEMPTS

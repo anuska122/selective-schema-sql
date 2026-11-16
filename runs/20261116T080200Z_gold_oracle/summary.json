@@ -1,0 +1,48 @@
+{
+  "run": "20261116T080200Z_gold_oracle",
+  "strategy": "gold_oracle",
+  "comparison": "multiset",
+  "git_sha": "42f9361fde0f474d54350bbc81fcc1035c6031fa",
+  "overall": {
+    "n": 498,
+    "correct": 498,
+    "ex": 100.0
+  },
+  "by_difficulty": {
+    "challenging": {
+      "n": 102,
+      "correct": 102,
+      "ex": 100.0
+    },
+    "moderate": {
+      "n": 248,
+      "correct": 248,
+      "ex": 100.0
+    },
+    "simple": {
+      "n": 148,
+      "correct": 148,
+      "ex": 100.0
+    }
+  },
+  "errors": {},
+  "totals": {
+    "llm_calls": 0,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "cached_tokens": 0,
+    "cost_usd": 0
+  },
+  "per_question": {
+    "llm_calls": 0.0,
+    "tokens_in": 0.0,
+    "tokens_out": 0.0,
+    "cached_tokens": 0.0,
+    "cost_usd": 0.0
+  },
+  "latency_ms": {
+    "p50": 0.01,
+    "p95": 0.02
+  },
+  "stages": {}
+}
